@@ -17,7 +17,8 @@ class AuthController extends Controller
             'prenom' => 'required|string',
             'email' => 'required|email|unique:utilisateurs',
             'password' => 'required|min:6',
-            'role' => 'required|string'
+            'role' => 'required|string',
+            'departement' => 'required|string'
         ]);
 
         $user = Utilisateur::create([
@@ -25,7 +26,8 @@ class AuthController extends Controller
             'prenom' => $request->prenom,
             'email' => $request->email,
             'password' => Hash::make($request->password),
-            'role' => $request->role
+            'role' => $request->role,
+            'departement' => $request->departement
         ]);
 
         return response()->json(['message' => 'Utilisateur créé avec succès'], 201);

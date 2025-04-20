@@ -4,6 +4,7 @@ import { Navigate } from 'react-router-dom';
 // project imports
 import Loadable from 'components/Loadable';
 import DashboardLayout from 'layout/Dashboard';
+import ErrorPage from 'pages/ErrorPage';
 
 // render- Dashboard
 const DashboardDefault = Loadable(lazy(() => import('pages/dashboard/default')));

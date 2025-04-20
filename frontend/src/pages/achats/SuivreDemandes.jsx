@@ -9,22 +9,29 @@ import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
+import IconButton from '@mui/material/IconButton';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogContentText from '@mui/material/DialogContentText';
+import DialogTitle from '@mui/material/DialogTitle';
+import Button from '@mui/material/Button';
+import Snackbar from '@mui/material/Snackbar';
+import { modifierDemande } from '../../api/demande';
 
 // project imports
 import Dot from 'components/@extended/Dot';
+import { getDemandes } from '../../api/demande';
+import { supprimerDemande } from '../../api/demande'; // n'oublie pas d'importer
+import React, { useEffect, useState } from 'react';
 
 function createData(request_no, user_name, request_type, status, submit_date) {
   return { request_no, user_name, request_type, status, submit_date };
 }
 
-const rows = [
-  createData(84564564, 'John Doe', 'Achat Matériel', 0, '2025-03-12'),
-  createData(98764564, 'Sara Smith', 'Requête Document', 1, '2025-03-13'),
-  createData(98756325, 'Alex Johnson', 'Achat Logiciel', 2, '2025-03-14'),
-  createData(98652366, 'Emily Davis', 'Formation', 0, '2025-03-15'),
-  createData(13286564, 'Michael Brown', 'Achat Matériel', 1, '2025-03-16'),
-  createData(86739658, 'Anna Wilson', 'Achat Matériel', 0, '2025-03-17'),
-];
+
 
 function descendingComparator(a, b, orderBy) {
   if (b[orderBy] < a[orderBy]) {
@@ -60,16 +67,16 @@ const headCells = [
     label: 'Numéro de demande'
   },
   {
-    id: 'user_name',
+    id: 'description',
     align: 'left',
     disablePadding: true,
-    label: 'Nom de l\'utilisateur'
+    label: 'Description'
   },
   {
-    id: 'request_type',
+    id: 'justification',
     align: 'left',
     disablePadding: false,
-    label: 'Type de demande'
+    label: 'Justification'
   },
   {
     id: 'status',
@@ -82,8 +89,15 @@ const headCells = [
     align: 'left',
     disablePadding: false,
     label: 'Date de soumission'
+  },
+  {
+    id: 'actions',
+    align: 'center',
+    disablePadding: false,
+    label: 'Actions'
   }
 ];
+
 
 // ==============================|| ORDER TABLE - HEADER ||============================== //
 
@@ -109,27 +123,34 @@ function RequestTableHead({ order, orderBy }) {
 // ==============================|| STATUT DES DEMANDES ||============================== //
 
 function RequestStatus({ status }) {
+  let color, label;
+
+  switch (status) {
+    case 0:
+      color = 'warning';
+      label = 'En attente';
+      break;
+    case 1:
+      color = 'success';
+      label = 'Acceptée';
+      break;
+    case 2:
+      color = 'error';
+      label = 'Rejetée';
+      break;
+    default:
+      color = 'default';
+      label = 'Inconnu';
+  }
+
   return (
-    <Stack direction="row" sx={{ gap: 1, alignItems: 'center' }}>
-      {/* Un seul cercle sera coloré en fonction du statut */}
-      <Dot
-        color={status === 0 ? 'warning' : 'transparent'} // Si statut 0, couleur warning, sinon transparent
-        borderColor={status === 0 ? 'warning' : 'transparent'} // Bordure colorée pour le statut 0
-        variant={status === 0 ? 'filled' : 'outlined'} // Cercle plein pour statut 0
-      />
-      <Dot
-        color={status === 1 ? 'success' : 'transparent'} // Si statut 1, couleur success, sinon transparent
-        borderColor={status === 1 ? 'success' : 'transparent'} // Bordure colorée pour le statut 1
-        variant={status === 1 ? 'filled' : 'outlined'} // Cercle plein pour statut 1
-      />
-      <Dot
-        color={status === 2 ? 'error' : 'transparent'} // Si statut 2, couleur error, sinon transparent
-        borderColor={status === 2 ? 'error' : 'transparent'} // Bordure colorée pour le statut 2
-        variant={status === 2 ? 'filled' : 'outlined'} // Cercle plein pour statut 2
-      />
+    <Stack direction="row" spacing={1} alignItems="center">
+      <Dot color={color} />
+      <Typography variant="body2">{label}</Typography>
     </Stack>
   );
 }
+
 
 
 
@@ -141,6 +162,64 @@ function RequestStatus({ status }) {
 export default function RequestTable() {
   const order = 'asc';
   const orderBy = 'request_no';
+  const [rows, setRows] = useState([]);
+  const [openDialog, setOpenDialog] = useState(false);
+const [demandeToDelete, setDemandeToDelete] = useState(null);
+const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+const handleConfirmDelete = (row) => {
+  setDemandeToDelete(row);
+  setOpenDialog(true);
+};
+const [demandeToUpdate, setDemandeToUpdate] = useState(null);
+const [openUpdateDialog, setOpenUpdateDialog] = useState(false);
+
+  useEffect(() => {
+    const fetchDemandes = async () => {
+      try {
+        const data = await getDemandes();
+        console.log('Données récupérées du backend :', data);
+
+        // Adapter les données ici si nécessaire
+        const formattedRows = data.map((demande) => ({
+          request_no: demande.id,
+          description: demande.description ?? '',
+          justification: demande.justification ?? '',
+          status: demande.status ?? 0,
+          submit_date: demande.date_demande?.split(' ')[0] ?? 'N/A'
+        }));
+
+
+        setRows(formattedRows);
+      } catch (error) {
+        console.error('Erreur lors du chargement des demandes :', error);
+      }
+    };
+
+    fetchDemandes();
+  }, []);
+
+  const handleUpdate = (row) => {
+    setDemandeToUpdate(row);
+    setOpenUpdateDialog(true);
+  };
+
+
+  const handleDelete = async () => {
+    if (!demandeToDelete) return;
+
+    try {
+      await supprimerDemande(demandeToDelete.request_no);
+      setRows((prevRows) => prevRows.filter((r) => r.request_no !== demandeToDelete.request_no));
+      setSnackbar({ open: true, message: 'Demande supprimée avec succès.', severity: 'success' });
+    } catch (error) {
+      console.error('Erreur lors de la suppression :', error);
+      setSnackbar({ open: true, message: 'Échec de la suppression.', severity: 'error' });
+    } finally {
+      setOpenDialog(false);
+      setDemandeToDelete(null);
+    }
+  };
+
 
   return (
     <Box>
@@ -157,34 +236,139 @@ export default function RequestTable() {
         <Table aria-labelledby="tableTitle">
           <RequestTableHead order={order} orderBy={orderBy} />
           <TableBody>
-            {stableSort(rows, getComparator(order, orderBy)).map((row, index) => {
-              const labelId = `enhanced-table-checkbox-${index}`;
+  {stableSort(rows, getComparator(order, orderBy)).map((row, index) => {
+    const labelId = `enhanced-table-checkbox-${index}`;
 
-              return (
-                <TableRow
-                  hover
-                  role="checkbox"
-                  sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
-                  tabIndex={-1}
-                  key={row.request_no}
-                >
-                  <TableCell component="th" id={labelId} scope="row">
-                    <Link color="secondary">{row.request_no}</Link>
-                  </TableCell>
-                  <TableCell>{row.user_name}</TableCell>
-                  <TableCell>{row.request_type}</TableCell>
-                  <TableCell>
-                    <RequestStatus status={row.status} />
-                  </TableCell>
-                  <TableCell>{row.submit_date}</TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
+    return (
+      <TableRow
+        hover
+        tabIndex={-1}
+        key={row.request_no}
+        sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
+      >
+        <TableCell component="th" id={labelId} scope="row">
+          <Link color="secondary">{row.request_no}</Link>
+        </TableCell>
+        <TableCell>{row.description}</TableCell>
+        <TableCell>{row.justification}</TableCell>
+        <TableCell><RequestStatus status={row.status} /></TableCell>
+        <TableCell>{row.submit_date}</TableCell>
+        <TableCell align="center">
+  <Stack direction="row" spacing={1} justifyContent="center">
+  <IconButton color="primary" aria-label="Modifier la demande" onClick={() => handleUpdate(row)}>
+  <EditIcon />
+</IconButton>
+    <IconButton color="error" aria-label="Supprimer la demande" onClick={() => handleConfirmDelete(row)}>
+  <DeleteIcon />
+</IconButton>
+  </Stack>
+</TableCell>
+
+      </TableRow>
+    );
+
+
+  })}
+</TableBody>
+<Dialog open={openDialog} onClose={() => setOpenDialog(false)}>
+  <DialogTitle>Confirmer la suppression</DialogTitle>
+  <DialogContent>
+    <DialogContentText>
+      Êtes-vous sûr de vouloir supprimer la demande n° {demandeToDelete?.request_no} ?
+      Cette action est irréversible.
+    </DialogContentText>
+  </DialogContent>
+  <DialogActions>
+    <Button onClick={() => setOpenDialog(false)} color="primary">
+      Annuler
+    </Button>
+    <Button onClick={handleDelete} color="error" autoFocus>
+      Supprimer
+    </Button>
+  </DialogActions>
+</Dialog>
+
+<Snackbar
+  open={snackbar.open}
+  autoHideDuration={3000}
+  onClose={() => setSnackbar({ ...snackbar, open: false })}
+  message={snackbar.message}
+/>
+
+<Dialog open={openUpdateDialog} onClose={() => setOpenUpdateDialog(false)} maxWidth="md" fullWidth>
+  <DialogTitle>Modifier la demande</DialogTitle>
+  <DialogContent>
+    <form id="update-demande-form" encType="multipart/form-data">
+      <Box display="flex" flexDirection="column" gap={2} mt={2}>
+        <input
+          type="text"
+          placeholder="Description"
+          defaultValue={demandeToUpdate?.description}
+          onChange={(e) =>
+            setDemandeToUpdate((prev) => ({ ...prev, description: e.target.value }))
+          }
+        />
+        <textarea
+          placeholder="Justification"
+          defaultValue={demandeToUpdate?.justification}
+          onChange={(e) =>
+            setDemandeToUpdate((prev) => ({ ...prev, justification: e.target.value }))
+          }
+        />
+        {/* Tu peux aussi ajouter les produits si nécessaire ici */}
+       {/* {demandeToUpdate?.piece_jointe && typeof demandeToUpdate.piece_jointe === 'string' && ( 
+   <Box>
+     <Typography variant="body2">Pièce jointe actuelle :</Typography>
+     <Link href={URL_DU_BACKEND/uploads/${demandeToUpdate.piece_jointe}} target="_blank" rel="noopener">
+       {demandeToUpdate.piece_jointe}
+     </Link>
+   </Box>
+)}*/}
+
+        <input
+          type="file"
+          onChange={(e) =>
+            setDemandeToUpdate((prev) => ({ ...prev, piece_jointe: e.target.files[0] }))
+          }
+        />
+      </Box>
+    </form>
+  </DialogContent>
+  <DialogActions>
+    <Button onClick={() => setOpenUpdateDialog(false)}>Annuler</Button>
+    <Button variant="contained" onClick={async () => {
+      try {
+        await modifierDemande(demandeToUpdate.request_no, demandeToUpdate);
+        setSnackbar({ open: true, message: 'Demande modifiée avec succès.', severity: 'success' });
+        setOpenUpdateDialog(false);
+        // Recharge la liste
+        const updatedData = await getDemandes();
+        const formattedRows = updatedData.map((demande) => ({
+          request_no: demande.id,
+          description: demande.description ?? '',
+          justification: demande.justification ?? '',
+          status: demande.status ?? 0,
+          submit_date: demande.date_demande?.split(' ')[0] ?? 'N/A',
+          piece_jointe: demande.piece_jointe ?? null  // <-- Ajout ici
+        }));
+
+        setRows(formattedRows);
+      } catch (error) {
+        console.error('Erreur lors de la modification :', error);
+        setSnackbar({ open: true, message: 'Échec de la modification.', severity: 'error' });
+      }
+    }}>
+      Enregistrer
+    </Button>
+  </DialogActions>
+</Dialog>
+
+
         </Table>
       </TableContainer>
     </Box>
   );
+
 }
 
 RequestTableHead.propTypes = { order: PropTypes.any, orderBy: PropTypes.string };

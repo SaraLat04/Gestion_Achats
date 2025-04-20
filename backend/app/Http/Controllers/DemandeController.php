@@ -3,54 +3,62 @@
 namespace App\Http\Controllers;
 
 use App\Models\Demande;
+use App\Models\ProduitDemande;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use App\Models\ProduitDemande;
-use App\Models\Utilisateur;
-
-
 
 class DemandeController extends Controller
 {
-    // Méthode pour afficher le formulaire de création de demande
+    // Retourner les demandes de l'utilisateur connecté
+public function index()
+{
+    $user = auth()->user();
+
+    // Si tu veux retourner uniquement les demandes de l'utilisateur connecté
+    $demandes = Demande::with('produitsTemp') // ou 'produits' selon ta relation
+        ->where('utilisateur_id', $user->id)
+        ->orderBy('date_demande', 'desc')
+        ->get();
+
+    return response()->json($demandes);
+}
+
+    // Afficher le formulaire de création de demande
     public function create()
     {
-        // Récupérer l'utilisateur authentifié
         $user = auth()->user();
-
-        // Retourner une vue pour la création de la demande avec les données utilisateur pré-remplies
         return view('demandes.create', compact('user'));
     }
 
-    // Méthode pour enregistrer la demande dans la base de données
+    // Enregistrer une nouvelle demande
     public function store(Request $request)
     {
-
-        // $user = auth()->user();
-        $utilisateurId = auth()->id() ?? 1;
+        $user = auth()->user(); // L'utilisateur connecté
+        if (!$user) {
+            return response()->json(['error' => 'Utilisateur non authentifié'], 401);
+        }
 
         $request->validate([
             'description' => 'required|string|max:255',
             'justification' => 'required|string|max:255',
             'piece_jointe' => 'nullable|file|mimes:jpg,jpeg,png,pdf',
             'produits' => 'required|array',
-            'produits.*.nom' => 'required|string', // On attend maintenant un nom plutôt qu'un ID
-            'produits.*.quantite' => 'required|integer|min:1', // Ajout d'autres champs si nécessaire
+            'produits.*.nom' => 'required|string',
+            'produits.*.quantite' => 'required|integer|min:1',
         ]);
 
-        // Création de la demande
+        // Création de la demande avec l'ID de l'utilisateur connecté
         $demande = Demande::create([
-            'utilisateur_id' => $utilisateurId,
-            'departement' => 'IT',
-            'statut' => 'en_attente', // Valeur par défaut
+            'utilisateur_id' => $user->id,
+            'departement' => $user->departement ?? 'Non défini', // ou une autre logique
+            'statut' => 'en_attente',
             'description' => $request->description,
-            'date_demande' => now(), // Date actuelle
             'justification' => $request->justification,
+            'date_demande' => now(),
             'piece_jointe' => $request->hasFile('piece_jointe')
                 ? $request->file('piece_jointe')->store('pieces_jointes')
                 : null,
         ]);
-
 
         // Gestion des produits
         foreach ($request->produits as $produitData) {

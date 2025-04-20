@@ -1,9 +1,8 @@
-import axios from 'axios';
-
-const API_URL = 'http://localhost:8000/api'; // Remplacez par l'URL de votre backend Laravel
+// src/api/auth.js
+import axios from './axios';
 
 const login = async (email, password) => {
-  const response = await axios.post(`${API_URL}/login`, { email, password });
+  const response = await axios.post('/login', { email, password });
   if (response.data.token) {
     localStorage.setItem('user', JSON.stringify(response.data.user));
     localStorage.setItem('token', response.data.token);
@@ -12,7 +11,7 @@ const login = async (email, password) => {
 };
 
 const register = async (nom, prenom, email, password, role) => {
-  const response = await axios.post(`${API_URL}/register`, {
+  const response = await axios.post('/register', {
     nom,
     prenom,
     email,
@@ -27,10 +26,7 @@ const register = async (nom, prenom, email, password, role) => {
 };
 
 const logout = async () => {
-  const token = localStorage.getItem('token');
-  await axios.post(`${API_URL}/logout`, null, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  await axios.post('/logout');
   localStorage.removeItem('user');
   localStorage.removeItem('token');
 };

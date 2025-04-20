@@ -19,12 +19,14 @@ class Utilisateur extends Authenticatable
         'prenom',
         'email',
         'password',
-        'role'
+        'role',
+        'departement'
     ];
+
 
     public function demandes()
     {
         return $this->hasMany(Demande::class);
     }
-    
+
 }

@@ -30,6 +30,7 @@ Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 
 Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/demandes', [DemandeController::class, 'index']);
     Route::post('/demande', [DemandeController::class, 'store']);
     Route::put('/demande/{id}', [DemandeController::class, 'update']);
     Route::delete('/demande/{id}', [DemandeController::class, 'destroy']);

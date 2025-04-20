@@ -1,4 +1,5 @@
 import React, { useReducer } from "react";
+import axios from "axios";
 import {
   TextField,
   Button,
@@ -56,9 +57,62 @@ function reducer(state, action) {
 export default function AddDemande() {
   const [state, dispatch] = useReducer(reducer, initialState);
 
-  const envoyerDemande = () => {
-    console.log({ nom: "Demandeur", email: "demandeur@gmail.com", departement: "Informatique", ...state });
-    alert("Demande envoyée avec succès !");
+  const user = JSON.parse(localStorage.getItem('user'));
+
+  // Fonction envoyerDemande
+  const envoyerDemande = async () => {
+    if (!user) {
+      alert("Utilisateur non connecté !");
+      return;
+    }
+  
+    // Validation simple
+    if (!state.description || !state.justification || state.produits.length === 0) {
+      alert("Veuillez remplir la description, la justification et ajouter au moins un produit.");
+      return;
+    }
+  
+    const formData = new FormData();
+    formData.append("user_id", user.id); // Ajout de l'ID de l'utilisateur
+    formData.append("nom_demandeur", `${user.nom} ${user.prenom}`);
+    formData.append("email_demandeur", user.email);
+    formData.append("departement", user.departement); // assure-toi que tu l'enregistres à l'inscription
+  
+    formData.append("description", state.description);
+    formData.append("justification", state.justification);
+  
+    if (state.fichier) {
+      formData.append("piece_jointe", state.fichier);
+    }
+  
+    // Ajouter les produits
+    state.produits.forEach((produit, index) => {
+      formData.append(`produits[${index}][nom]`, produit.nom);
+      formData.append(`produits[${index}][quantite]`, produit.quantite);
+    });
+  
+    try {
+      const token = localStorage.getItem("token");
+    
+      const response = await axios.post("http://localhost:8000/api/demande", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+    
+      alert("Demande envoyée avec succès !");
+      dispatch({ type: "RESET" });
+    } catch (error) {
+      if (error.response) {
+        console.error("Réponse du serveur :", error.response.data);
+      } else if (error.request) {
+        console.error("Pas de réponse reçue :", error.request);
+      } else {
+        console.error("Erreur de configuration :", error.message);
+      }
+      alert("Une erreur est survenue lors de l’envoi.");
+    }
   };
 
   // Fonction pour gérer la sélection du fichier
@@ -76,7 +130,7 @@ export default function AddDemande() {
           </Typography>
           <TextField
             label="Nom du demandeur"
-            value="Demandeur"
+            value={user ? `${user.nom} ${user.prenom}` : ''}
             fullWidth
             margin="normal"
             disabled
@@ -84,7 +138,7 @@ export default function AddDemande() {
           />
           <TextField
             label="Email du demandeur"
-            value="demandeur@gmail.com"
+            value={user ? user.email : ''}
             fullWidth
             margin="normal"
             disabled
@@ -92,7 +146,7 @@ export default function AddDemande() {
           />
           <TextField
             label="Département"
-            value="Informatique"
+            value={user ? user.departement : ''}
             fullWidth
             margin="normal"
             disabled
