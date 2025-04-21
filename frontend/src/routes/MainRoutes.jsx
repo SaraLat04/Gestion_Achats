@@ -4,12 +4,10 @@ import { Navigate } from 'react-router-dom';
 // project imports
 import Loadable from 'components/Loadable';
 import DashboardLayout from 'layout/Dashboard';
-import ErrorPage from 'pages/ErrorPage';
+import PrivateRouteByRole from './PrivateRouteByRole.jsx';
 
-// render- Dashboard
+// pages
 const DashboardDefault = Loadable(lazy(() => import('pages/dashboard/default')));
-
-// render - color
 const Color = Loadable(lazy(() => import('pages/component-overview/color')));
 const Typography = Loadable(lazy(() => import('pages/component-overview/typography')));
 const Shadow = Loadable(lazy(() => import('pages/component-overview/shadows')));
@@ -19,8 +17,8 @@ const SuivreDemandes = Loadable(lazy(() => import('pages/achats/SuivreDemandes')
 const Validation = Loadable(lazy(() => import('pages/achats/Validation')));
 const Produits = Loadable(lazy(() => import('pages/achats/Produits')));
 
-// render - sample page
 const SamplePage = Loadable(lazy(() => import('pages/extra-pages/sample-page')));
+const Unauthorized = Loadable(lazy(() => import('../pages/Errors/Unauthorized.jsx')));
 
 // ==============================|| MAIN ROUTING ||============================== //
 
@@ -29,8 +27,8 @@ const MainRoutes = {
   element: <DashboardLayout />,
   children: [
     {
-      index: true, // Redirige la racine vers /login
-      element: <Navigate to="/login" replace />,
+      index: true,
+      element: <Navigate to="/login" replace />
     },
     {
       path: 'dashboard',
@@ -60,19 +58,40 @@ const MainRoutes = {
     // ==============================|| ACHATS ROUTES ||============================== //
     {
       path: 'creer-demande',
-      element: <CreerDemande />
+      element: (
+        <PrivateRouteByRole allowedRoles={['directeur labo', 'professeur','chef_depa']}>
+          <CreerDemande />
+        </PrivateRouteByRole>
+      )
     },
     {
       path: 'suivre-demandes',
-      element: <SuivreDemandes />
+      element: (
+        <PrivateRouteByRole allowedRoles={['directeur labo', 'professeur','chef_depa']}>
+          <SuivreDemandes />
+        </PrivateRouteByRole>
+      )
     },
     {
       path: 'validation',
-      element: <Validation />
+      element: (
+        <PrivateRouteByRole allowedRoles={['secrétaire général', 'responsable financier' , 'doyen']}>
+          <Validation />
+        </PrivateRouteByRole>
+      )
     },
     {
       path: 'produits',
-      element: <Produits />
+      element: (
+        <PrivateRouteByRole allowedRoles={['mgasinier']}>
+          <Produits />
+        </PrivateRouteByRole>
+      )
+    },
+    // Unauthorized
+    {
+      path: 'unauthorized',
+      element: <Unauthorized />
     }
   ]
 };

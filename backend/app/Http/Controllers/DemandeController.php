@@ -10,18 +10,18 @@ use Illuminate\Support\Facades\Auth;
 class DemandeController extends Controller
 {
     // Retourner les demandes de l'utilisateur connecté
-public function index()
-{
-    $user = auth()->user();
+    public function index()
+    {
+        $user = auth()->user();
 
-    // Si tu veux retourner uniquement les demandes de l'utilisateur connecté
-    $demandes = Demande::with('produitsTemp') // ou 'produits' selon ta relation
-        ->where('utilisateur_id', $user->id)
-        ->orderBy('date_demande', 'desc')
-        ->get();
+        // Si tu veux retourner uniquement les demandes de l'utilisateur connecté
+        $demandes = Demande::with('produitsTemp') // ou 'produits' selon ta relation
+            ->where('utilisateur_id', $user->id)
+            ->orderBy('date_demande', 'desc')
+            ->get();
 
-    return response()->json($demandes);
-}
+        return response()->json($demandes);
+    }
 
     // Afficher le formulaire de création de demande
     public function create()
@@ -51,7 +51,7 @@ public function index()
         $demande = Demande::create([
             'utilisateur_id' => $user->id,
             'departement' => $user->departement ?? 'Non défini', // ou une autre logique
-            'statut' => 'en_attente',
+            'statut' => 'En attente',
             'description' => $request->description,
             'justification' => $request->justification,
             'date_demande' => now(),
@@ -138,5 +138,30 @@ public function index()
 
         return response()->json(['message' => 'Demande supprimée avec succès']);
     }
+
+
+    public function getStatistiques()
+    {
+        // Total des demandes
+        $totalDemandes = Demande::count();
+
+        // Total des demandes validées
+        $demandesValide = Demande::where('statut', Demande::STATUT_VALIDE)->count();
+
+        // Total des demandes en attente
+        $demandesEnAttente = Demande::where('statut', Demande::STATUT_EN_ATTENTE)->count();
+
+        // Total des demandes refusées
+        $demandesRefuse = Demande::where('statut', Demande::STATUT_REFUSE)->count();
+
+        // Retourner les statistiques sous forme de réponse JSON
+        return response()->json([
+            'totalDemandes' => $totalDemandes,
+            'demandesValide' => $demandesValide,
+            'demandesEnAttente' => $demandesEnAttente,
+            'demandesRefuse' => $demandesRefuse,
+        ]);
+    }
+
 
 }
