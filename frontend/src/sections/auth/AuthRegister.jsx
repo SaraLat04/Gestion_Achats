@@ -1,232 +1,222 @@
 import { useEffect, useState } from 'react';
-import { Link as RouterLink, useSearchParams } from 'react-router-dom';
-
-// material-ui
-import Button from '@mui/material/Button';
-import FormControl from '@mui/material/FormControl';
-import FormHelperText from '@mui/material/FormHelperText';
-import Grid from '@mui/material/Grid2';
-import Link from '@mui/material/Link';
-import InputAdornment from '@mui/material/InputAdornment';
-import InputLabel from '@mui/material/InputLabel';
-import OutlinedInput from '@mui/material/OutlinedInput';
-import Stack from '@mui/material/Stack';
-import Typography from '@mui/material/Typography';
-import Box from '@mui/material/Box';
-import MenuItem from '@mui/material/MenuItem';
-import Select from '@mui/material/Select';
-
-// third-party
+import { useFormik } from 'formik';
 import * as Yup from 'yup';
-import { Formik } from 'formik';
-
-// project imports
-import IconButton from 'components/@extended/IconButton';
-import AnimateButton from 'components/@extended/AnimateButton';
-
-import { strengthColor, strengthIndicator } from 'utils/password-strength';
-
-// assets
-import EyeOutlined from '@ant-design/icons/EyeOutlined';
-import EyeInvisibleOutlined from '@ant-design/icons/EyeInvisibleOutlined';
-
-// ============================|| JWT - REGISTER ||============================ //
+import {
+  Grid,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select,
+  OutlinedInput,
+  FormHelperText,
+  Button
+} from '@mui/material';
+import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 
 export default function AuthRegister() {
-  const [level, setLevel] = useState();
+  const [roles, setRoles] = useState([]);
   const [showPassword, setShowPassword] = useState(false);
-  const [role, setRole] = useState('chef_departement'); // default role
-  const handleClickShowPassword = () => {
-    setShowPassword(!showPassword);
-  };
-
-  const handleMouseDownPassword = (event) => {
-    event.preventDefault();
-  };
-
-  const changePassword = (value) => {
-    const temp = strengthIndicator(value);
-    setLevel(strengthColor(temp));
-  };
-
-  const [searchParams] = useSearchParams();
-  const auth = searchParams.get('auth'); // get auth and set route based on that
+  const navigate = useNavigate();
 
   useEffect(() => {
-    changePassword('');
+    axios.get('http://127.0.0.1:8000/api/roles')
+      .then((response) => {
+        setRoles(response.data);
+      })
+      .catch((error) => {
+        console.error('Erreur lors du chargement des rôles:', error);
+      });
   }, []);
 
+  const validationSchema = Yup.object({
+    firstname: Yup.string().required('First name is required'),
+    lastname: Yup.string().required('Last name is required'),
+    email: Yup.string().email('Invalid email format').required('Email is required'),
+    password: Yup.string()
+      .min(6, 'Password must be at least 6 characters')
+      .matches(/[a-z]/, 'Password must contain at least one lowercase letter')
+      .matches(/[A-Z]/, 'Password must contain at least one uppercase letter')
+      .matches(/\d/, 'Password must contain at least one number')
+      .matches(/[!@#$%^&*(),.?":{}|<>]/, 'Password must contain at least one special character')
+      .required('Password is required'),
+    confirmPassword: Yup.string()
+      .oneOf([Yup.ref('password'), null], 'Passwords must match')
+      .required('Confirm Password is required'),
+    role: Yup.string().required('Role is required'),
+    company: Yup.string().required('Company is required')
+  });
+
+  const formik = useFormik({
+    initialValues: {
+      firstname: '',
+      lastname: '',
+      email: '',
+      company: '',
+      password: '',
+      confirmPassword: '',
+      role: '',
+    },
+    validationSchema,
+    onSubmit: async (values) => {
+      try {
+        await axios.post('http://localhost:8000/api/register', {
+          nom: values.firstname,
+          prenom: values.lastname,
+          email: values.email,
+          password: values.password,
+          role: values.role,
+          departement: values.company,
+        });
+        alert('Utilisateur créé avec succès');
+        navigate('/login'); // Redirection vers la page login
+      } catch (error) {
+        alert('Erreur lors de la création de l\'utilisateur');
+        console.error(error);
+      }
+    },
+  });
+
   return (
-    <>
-      <Formik
-        initialValues={{
-          firstname: '',
-          lastname: '',
-          email: '',
-          company: '',
-          password: '',
-          role: 'chef_departement', // added role to initial values
-          submit: null
-        }}
-        validationSchema={Yup.object().shape({
-          firstname: Yup.string().max(255).required('First Name is required'),
-          lastname: Yup.string().max(255).required('Last Name is required'),
-          email: Yup.string().email('Must be a valid email').max(255).required('Email is required'),
-          password: Yup.string()
-            .required('Password is required')
-            .test('no-leading-trailing-whitespace', 'Password cannot start or end with spaces', (value) => value === value.trim())
-            .max(10, 'Password must be less than 10 characters')
-        })}
-      >
-        {({ errors, handleBlur, handleChange, touched, values }) => (
-          <form noValidate>
-            <Grid container spacing={3}>
-              {/* First Name */}
-              <Grid size={{ xs: 12, md: 6 }}>
-                <Stack sx={{ gap: 1 }}>
-                  <InputLabel htmlFor="firstname-signup">First Name*</InputLabel>
-                  <OutlinedInput
-                    id="firstname-login"
-                    type="firstname"
-                    value={values.firstname}
-                    name="firstname"
-                    onBlur={handleBlur}
-                    onChange={handleChange}
-                    placeholder="John"
-                    fullWidth
-                    error={Boolean(touched.firstname && errors.firstname)}
-                  />
-                </Stack>
-                {touched.firstname && errors.firstname && (
-                  <FormHelperText error id="helper-text-firstname-signup">
-                    {errors.firstname}
-                  </FormHelperText>
-                )}
-              </Grid>
+    <form onSubmit={formik.handleSubmit} noValidate>
+      <Grid container spacing={3}>
+        <Grid item xs={12}>
+          <FormControl fullWidth error={formik.touched.firstname && Boolean(formik.errors.firstname)}>
+            <InputLabel htmlFor="firstname">First Name*</InputLabel>
+            <OutlinedInput
+              id="firstname"
+              name="firstname"
+              value={formik.values.firstname}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
+              label="First Name"
+            />
+            {formik.touched.firstname && formik.errors.firstname && (
+              <FormHelperText>{formik.errors.firstname}</FormHelperText>
+            )}
+          </FormControl>
+        </Grid>
 
-              {/* Last Name */}
-              <Grid size={{ xs: 12, md: 6 }}>
-                <Stack sx={{ gap: 1 }}>
-                  <InputLabel htmlFor="lastname-signup">Last Name*</InputLabel>
-                  <OutlinedInput
-                    fullWidth
-                    error={Boolean(touched.lastname && errors.lastname)}
-                    id="lastname-signup"
-                    type="lastname"
-                    value={values.lastname}
-                    name="lastname"
-                    onBlur={handleBlur}
-                    onChange={handleChange}
-                    placeholder="Doe"
-                  />
-                </Stack>
-                {touched.lastname && errors.lastname && (
-                  <FormHelperText error id="helper-text-lastname-signup">
-                    {errors.lastname}
-                  </FormHelperText>
-                )}
-              </Grid>
+        <Grid item xs={12}>
+          <FormControl fullWidth error={formik.touched.lastname && Boolean(formik.errors.lastname)}>
+            <InputLabel htmlFor="lastname">Last Name*</InputLabel>
+            <OutlinedInput
+              id="lastname"
+              name="lastname"
+              value={formik.values.lastname}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
+              label="Last Name"
+            />
+            {formik.touched.lastname && formik.errors.lastname && (
+              <FormHelperText>{formik.errors.lastname}</FormHelperText>
+            )}
+          </FormControl>
+        </Grid>
 
-              {/* Email */}
-              <Grid size={12}>
-                <Stack sx={{ gap: 1 }}>
-                  <InputLabel htmlFor="email-signup">Email Address*</InputLabel>
-                  <OutlinedInput
-                    fullWidth
-                    error={Boolean(touched.email && errors.email)}
-                    id="email-login"
-                    type="email"
-                    value={values.email}
-                    name="email"
-                    onBlur={handleBlur}
-                    onChange={handleChange}
-                    placeholder="demo@company.com"
-                  />
-                </Stack>
-                {touched.email && errors.email && (
-                  <FormHelperText error id="helper-text-email-signup">
-                    {errors.email}
-                  </FormHelperText>
-                )}
-              </Grid>
+        <Grid item xs={12}>
+          <FormControl fullWidth error={formik.touched.email && Boolean(formik.errors.email)}>
+            <InputLabel htmlFor="email">Email*</InputLabel>
+            <OutlinedInput
+              id="email"
+              name="email"
+              value={formik.values.email}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
+              label="Email"
+            />
+            {formik.touched.email && formik.errors.email && (
+              <FormHelperText>{formik.errors.email}</FormHelperText>
+            )}
+          </FormControl>
+        </Grid>
 
-              {/* Password */}
-              <Grid size={12}>
-                <Stack sx={{ gap: 1 }}>
-                  <InputLabel htmlFor="password-signup">Password</InputLabel>
-                  <OutlinedInput
-                    fullWidth
-                    error={Boolean(touched.password && errors.password)}
-                    id="password-signup"
-                    type={showPassword ? 'text' : 'password'}
-                    value={values.password}
-                    name="password"
-                    onBlur={handleBlur}
-                    onChange={(e) => {
-                      handleChange(e);
-                      changePassword(e.target.value);
-                    }}
-                    endAdornment={
-                      <InputAdornment position="end">
-                        <IconButton
-                          aria-label="toggle password visibility"
-                          onClick={handleClickShowPassword}
-                          onMouseDown={handleMouseDownPassword}
-                          edge="end"
-                          color="secondary"
-                        >
-                          {showPassword ? <EyeOutlined /> : <EyeInvisibleOutlined />}
-                        </IconButton>
-                      </InputAdornment>
-                    }
-                    placeholder="******"
-                  />
-                </Stack>
-                {touched.password && errors.password && (
-                  <FormHelperText error id="helper-text-password-signup">
-                    {errors.password}
-                  </FormHelperText>
-                )}
-              </Grid>
+        <Grid item xs={12}>
+          <FormControl fullWidth error={formik.touched.password && Boolean(formik.errors.password)}>
+            <InputLabel htmlFor="password">Password*</InputLabel>
+            <OutlinedInput
+              id="password"
+              name="password"
+              type={showPassword ? 'text' : 'password'}
+              value={formik.values.password}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
+              label="Password"
+            />
+            {formik.touched.password && formik.errors.password && (
+              <FormHelperText>{formik.errors.password}</FormHelperText>
+            )}
+          </FormControl>
+        </Grid>
 
-              {/* Role Selection */}
-              <Grid size={12}>
-                <Stack sx={{ gap: 1 }}>
-                  <InputLabel htmlFor="role-signup">Role*</InputLabel>
-                  <FormControl fullWidth>
-                    <Select
-                      label="Role"
-                      id="role-signup"
-                      name="role"
-                      value={values.role}
-                      onBlur={handleBlur}
-                      onChange={handleChange}
-                    >
-                      <MenuItem value="chef_departement">Chef de département</MenuItem>
-                      <MenuItem value="admin">Secrétaire Générale</MenuItem>
-                      <MenuItem value="manager">Prof</MenuItem>
-                    </Select>
-                  </FormControl>
-                </Stack>
-                {touched.role && errors.role && (
-                  <FormHelperText error id="helper-text-role-signup">
-                    {errors.role}
-                  </FormHelperText>
-                )}
-              </Grid>
+        <Grid item xs={12}>
+          <FormControl fullWidth error={formik.touched.confirmPassword && Boolean(formik.errors.confirmPassword)}>
+            <InputLabel htmlFor="confirmPassword">Confirm Password*</InputLabel>
+            <OutlinedInput
+              id="confirmPassword"
+              name="confirmPassword"
+              type={showPassword ? 'text' : 'password'}
+              value={formik.values.confirmPassword}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
+              label="Confirm Password"
+            />
+            {formik.touched.confirmPassword && formik.errors.confirmPassword && (
+              <FormHelperText>{formik.errors.confirmPassword}</FormHelperText>
+            )}
+          </FormControl>
+        </Grid>
 
-              {/* Submit Button */}
-              <Grid size={12}>
-                <AnimateButton>
-                  <Button fullWidth size="large" variant="contained" color="primary">
-                    Create Account
-                  </Button>
-                </AnimateButton>
-              </Grid>
-            </Grid>
-          </form>
-        )}
-      </Formik>
-    </>
+        <Grid item xs={12}>
+          <FormControl fullWidth error={formik.touched.role && Boolean(formik.errors.role)}>
+            <InputLabel htmlFor="role-signup">Role*</InputLabel>
+            <Select
+              label="Role"
+              id="role-signup"
+              name="role"
+              value={formik.values.role}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
+            >
+              {roles.length > 0 ? (
+                roles.map((role, index) => (
+                  <MenuItem key={index} value={role}>
+                    {role}
+                  </MenuItem>
+                ))
+              ) : (
+                <MenuItem disabled>Aucun rôle disponible</MenuItem>
+              )}
+            </Select>
+            {formik.touched.role && formik.errors.role && (
+              <FormHelperText>{formik.errors.role}</FormHelperText>
+            )}
+          </FormControl>
+        </Grid>
+
+        <Grid item xs={12}>
+          <FormControl fullWidth error={formik.touched.company && Boolean(formik.errors.company)}>
+            <InputLabel htmlFor="company">Company*</InputLabel>
+            <OutlinedInput
+              id="company"
+              name="company"
+              value={formik.values.company}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
+              label="Company"
+            />
+            {formik.touched.company && formik.errors.company && (
+              <FormHelperText>{formik.errors.company}</FormHelperText>
+            )}
+          </FormControl>
+        </Grid>
+
+        <Grid item xs={12}>
+          <Button fullWidth size="large" variant="contained" color="primary" type="submit">
+            Create Account
+          </Button>
+        </Grid>
+      </Grid>
+    </form>
   );
 }

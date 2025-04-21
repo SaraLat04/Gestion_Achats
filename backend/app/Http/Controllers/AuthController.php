@@ -6,7 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\Utilisateur;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
-
+use App\Enums\UserRole;
 class AuthController extends Controller
 {
 
@@ -34,26 +34,34 @@ class AuthController extends Controller
     }
 
     public function login(Request $request)
-{
-    $credentials = $request->validate([
-        'email' => 'required|email',
-        'password' => 'required'
-    ]);
-
-    if (Auth::attempt($credentials)) {
-        $user = Auth::user();
-        $token = $user->createToken('auth_token')->plainTextToken;
-
-        return response()->json([
-            'message' => 'Connexion réussie',
-            'token' => $token,
-            'user' => $user
+    {
+        $credentials = $request->validate([
+            'email' => 'required|email',
+            'password' => 'required'
         ]);
+
+        if (Auth::attempt($credentials)) {
+            $user = Auth::user();
+            $token = $user->createToken('auth_token')->plainTextToken;
+
+            return response()->json([
+                'message' => 'Connexion réussie',
+                'token' => $token,
+                'user' => $user
+            ]);
+        }
+
+        return response()->json(['message' => 'Identifiants invalides'], 401);
     }
 
-    return response()->json(['message' => 'Identifiants invalides'], 401);
-}
+    public function getRoles()
+    {
+        // Récupère les valeurs de l'énumération UserRole
+        $roles = UserRole::cases();
 
+        // Retourne les rôles sous forme de tableau
+        return response()->json($roles);
+    }
 
 }
 

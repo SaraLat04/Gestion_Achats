@@ -16,6 +16,7 @@ use App\Enums\UserRole;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
+Route::get('/roles', [AuthController::class, 'getRoles']);
 
 // Route pour récupérer l'utilisateur connecté
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
