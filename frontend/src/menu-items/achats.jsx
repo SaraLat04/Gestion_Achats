@@ -26,30 +26,35 @@ const achats = {
       title: 'Créer Demande',
       type: 'item',
       url: '/creer-demande',
-      icon: icons.FileAddOutlined
+      icon: icons.FileAddOutlined,
+      allowedRoles: ['directeur labo', 'professeur', 'chef_depa']
     },
     {
       id: 'suivre-demandes',
       title: 'Suivre mes Demandes',
       type: 'item',
       url: '/suivre-demandes',
-      icon: icons.OrderedListOutlined
+      icon: icons.OrderedListOutlined,
+      allowedRoles: ['directeur labo', 'professeur', 'chef_depa']
     },
     {
       id: 'validation',
       title: 'Validation',
       type: 'item',
       url: '/validation',
-      icon: icons.CheckCircleOutlined
+      icon: icons.CheckCircleOutlined,
+      allowedRoles: ['secrétaire général', 'responsable financier', 'doyen']
     },
     {
       id: 'produits',
       title: 'Produits',
       type: 'item',
       url: '/produits',
-      icon: icons.AppstoreOutlined
+      icon: icons.AppstoreOutlined,
+      allowedRoles: ['mgasinier']
     }
   ]
 };
+
 
 export default achats;

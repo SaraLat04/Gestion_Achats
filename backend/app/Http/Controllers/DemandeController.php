@@ -5,17 +5,15 @@ namespace App\Http\Controllers;
 use App\Models\Demande;
 use App\Models\ProduitDemande;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 
 class DemandeController extends Controller
 {
-    // Retourner les demandes de l'utilisateur connecté
+    // Lister les demandes de l'utilisateur connecté
     public function index()
     {
         $user = auth()->user();
 
-        // Si tu veux retourner uniquement les demandes de l'utilisateur connecté
-        $demandes = Demande::with('produitsTemp') // ou 'produits' selon ta relation
+        $demandes = Demande::with('produitsTemp') // Assure-toi que la relation 'produitsTemp' est définie
             ->where('utilisateur_id', $user->id)
             ->orderBy('date_demande', 'desc')
             ->get();
@@ -23,7 +21,7 @@ class DemandeController extends Controller
         return response()->json($demandes);
     }
 
-    // Afficher le formulaire de création de demande
+    // Afficher le formulaire de création
     public function create()
     {
         $user = auth()->user();
@@ -33,7 +31,7 @@ class DemandeController extends Controller
     // Enregistrer une nouvelle demande
     public function store(Request $request)
     {
-        $user = auth()->user(); // L'utilisateur connecté
+        $user = auth()->user();
         if (!$user) {
             return response()->json(['error' => 'Utilisateur non authentifié'], 401);
         }
@@ -47,11 +45,10 @@ class DemandeController extends Controller
             'produits.*.quantite' => 'required|integer|min:1',
         ]);
 
-        // Création de la demande avec l'ID de l'utilisateur connecté
         $demande = Demande::create([
             'utilisateur_id' => $user->id,
-            'departement' => $user->departement ?? 'Non défini', // ou une autre logique
-            'statut' => 'En attente',
+            'departement' => $user->departement ?? 'Non défini',
+            'statut' => 'en_attente',
             'description' => $request->description,
             'justification' => $request->justification,
             'date_demande' => now(),
@@ -60,31 +57,26 @@ class DemandeController extends Controller
                 : null,
         ]);
 
-        // Gestion des produits
+        // Enregistrement des produits
         foreach ($request->produits as $produitData) {
-            // Crée ou récupère le produit
             ProduitDemande::create([
                 'demande_id' => $demande->id,
                 'nom' => $produitData['nom'],
                 'quantite' => $produitData['quantite'],
             ]);
-
-
         }
 
-        return response()->json(['message' => 'demande créé avec succès'], 201);
+        return response()->json(['message' => 'Demande créée avec succès'], 201);
     }
 
     public function update(Request $request, $id)
     {
         $demande = Demande::findOrFail($id);
 
-        // Vérifie que l'utilisateur est bien le propriétaire de la demande
         if ($demande->utilisateur_id !== auth()->id()) {
             return response()->json(['error' => 'Non autorisé'], 403);
         }
 
-        // Validation
         $request->validate([
             'description' => 'sometimes|required|string|max:255',
             'justification' => 'sometimes|required|string|max:255',
@@ -94,9 +86,8 @@ class DemandeController extends Controller
             'produits.*.quantite' => 'required_with:produits|integer|min:1',
         ]);
 
-        // Mise à jour des champs de la demande
-        $demande->description = $request->description ?? $demande->description;
-        $demande->justification = $request->justification ?? $demande->justification;
+        $demande->description = $request->input('description', $demande->description);
+        $demande->justification = $request->input('justification', $demande->justification);
 
         if ($request->hasFile('piece_jointe')) {
             $demande->piece_jointe = $request->file('piece_jointe')->store('pieces_jointes');
@@ -104,12 +95,10 @@ class DemandeController extends Controller
 
         $demande->save();
 
-        // Mise à jour des produits temporaires (produit_demandes)
+        // Mise à jour des produits
         if ($request->has('produits')) {
-            // Supprimer les anciens produits liés (temp)
             $demande->produitsTemp()->delete();
 
-            // Ajouter les nouveaux produits
             foreach ($request->produits as $produitData) {
                 $demande->produitsTemp()->create([
                     'nom' => $produitData['nom'],
@@ -125,43 +114,23 @@ class DemandeController extends Controller
     {
         $demande = Demande::findOrFail($id);
 
-        // Vérifie que l'utilisateur est bien le propriétaire de la demande
         if ($demande->utilisateur_id !== auth()->id()) {
             return response()->json(['error' => 'Non autorisé'], 403);
         }
 
-        // Supprimer les produits temporaires associés (dans produit_demandes)
         $demande->produitsTemp()->delete();
-
-        // Supprimer la demande
         $demande->delete();
 
         return response()->json(['message' => 'Demande supprimée avec succès']);
     }
 
-
     public function getStatistiques()
     {
-        // Total des demandes
-        $totalDemandes = Demande::count();
-
-        // Total des demandes validées
-        $demandesValide = Demande::where('statut', Demande::STATUT_VALIDE)->count();
-
-        // Total des demandes en attente
-        $demandesEnAttente = Demande::where('statut', Demande::STATUT_EN_ATTENTE)->count();
-
-        // Total des demandes refusées
-        $demandesRefuse = Demande::where('statut', Demande::STATUT_REFUSE)->count();
-
-        // Retourner les statistiques sous forme de réponse JSON
         return response()->json([
-            'totalDemandes' => $totalDemandes,
-            'demandesValide' => $demandesValide,
-            'demandesEnAttente' => $demandesEnAttente,
-            'demandesRefuse' => $demandesRefuse,
+            'totalDemandes' => Demande::count(),
+            'demandesValide' => Demande::where('statut', Demande::STATUT_VALIDE)->count(),
+            'demandesEnAttente' => Demande::where('statut', Demande::STATUT_EN_ATTENTE)->count(),
+            'demandesRefuse' => Demande::where('statut', Demande::STATUT_REFUSE)->count(),
         ]);
     }
-
-
 }
