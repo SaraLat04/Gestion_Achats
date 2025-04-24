@@ -34,10 +34,12 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     // ✅ Routes accessibles à tout utilisateur connecté
     Route::get('/demandes', [DemandeController::class, 'index']);
+    Route::get('/allDemandes', [DemandeController::class, 'all']);
     Route::post('/demande', [DemandeController::class, 'store']);
     Route::put('/demande/{id}', [DemandeController::class, 'update']);
     Route::delete('/demande/{id}', [DemandeController::class, 'destroy']);
     Route::get('/statistiques-demandes', [DemandeController::class, 'getStatistiques']);
+    Route::post('/demande/{id}/envoyer-au-doyen', [DemandeController::class, 'sendToDean']);
 
     Route::get('/produits', [ProduitController::class, 'index']);
     Route::post('/produits', [ProduitController::class, 'store']);

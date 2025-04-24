@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Demande;
 use App\Models\ProduitDemande;
 use Illuminate\Http\Request;
+use App\Enums\UserRole;
+use Illuminate\Support\Facades\Auth;
 
 class DemandeController extends Controller
 {
@@ -48,7 +50,7 @@ class DemandeController extends Controller
         $demande = Demande::create([
             'utilisateur_id' => $user->id,
             'departement' => $user->departement ?? 'Non défini',
-            'statut' => 'en_attente',
+            'statut' => 'en attente',
             'description' => $request->description,
             'justification' => $request->justification,
             'date_demande' => now(),
@@ -114,9 +116,9 @@ class DemandeController extends Controller
     {
         $demande = Demande::findOrFail($id);
 
-        if ($demande->utilisateur_id !== auth()->id()) {
-            return response()->json(['error' => 'Non autorisé'], 403);
-        }
+        // if ($demande->utilisateur_id !== auth()->id()) {
+        //     return response()->json(['error' => 'Non autorisé'], 403);
+        // }
 
         $demande->produitsTemp()->delete();
         $demande->delete();
@@ -133,4 +135,58 @@ class DemandeController extends Controller
             'demandesRefuse' => Demande::where('statut', Demande::STATUT_REFUSE)->count(),
         ]);
     }
+
+    public function all()
+{
+    $user = auth()->user();
+
+    if ($user->role === 'doyen') {
+        // Le doyen ne voit que les demandes avec le statut "envoyée au doyen"
+        $demandes = Demande::with('produitsTemp', 'utilisateur')
+            ->where('statut', 'envoyée au doyen')
+            ->orderBy('date_demande', 'desc')
+            ->get();
+    } else {
+        // Les autres utilisateurs voient toutes les demandes
+        $demandes = Demande::with('produitsTemp', 'utilisateur')
+            ->orderBy('date_demande', 'desc')
+            ->get();
+    }
+
+    return response()->json($demandes);
+}
+
+
+    public function sendToDean($id)
+    {
+        // Récupérer l'utilisateur connecté et afficher son rôle pour vérification
+        $user = Auth::user();
+        $role = $user->role;
+        
+        // Afficher ou retourner le rôle de l'utilisateur connecté (pour vérifier)
+        \Log::info("Utilisateur connecté: " . $user->nom . " avec le rôle: " . $role);
+        
+        // Vérifier que l'utilisateur connecté est la secrétaire générale
+        // if ($role !== UserRole::DEMANDEUR) {
+        //      return response()->json(['error' => 'Accès refusé. Vous n\'êtes pas la secrétaire générale.'], 403);
+        //  }
+    
+        // Récupérer la demande par son ID
+        $demande = Demande::find($id);
+        if (!$demande) {
+            return response()->json(['error' => 'Demande non trouvée.'], 404);
+        }
+    
+        // Mettre à jour l'état de la demande pour indiquer qu'elle a été validée par la secrétaire générale
+        $demande->statut = 'envoyée au doyen';  // ou un autre état selon ton modèle
+        $demande->save();
+    
+        // Une fois la validation effectuée par la secrétaire générale, l'envoyer au doyen
+        // Tu pourrais par exemple notifier le doyen ici via un email ou une notification interne.
+        // Si tu veux une logique simple, tu peux juste retourner une confirmation ici.
+    
+        return response()->json(['success' => 'Demande envoyée au doyen avec succès.']);
+    }
+    
+
 }

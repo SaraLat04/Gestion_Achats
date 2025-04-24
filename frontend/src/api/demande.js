@@ -5,6 +5,12 @@ export const getDemandes = async () => {
   const response = await API.get('/demandes');
   return response.data;
 };
+
+export const getAllDemandes = async () => {
+  const response = await API.get('/allDemandes');
+  return response.data;
+};
+
 // Créer une demande
 export const creerDemande = async (data) => {
   const formData = new FormData();
@@ -52,8 +58,25 @@ export const modifierDemande = async (id, data) => {
   return response.data;
 };
 
-// Supprimer une demande
-export const supprimerDemande = async (id) => {
+
+export const sendToDean = async (requestId) => {
+  // Vérifie si requestId est défini et non vide
+  if (!requestId) {
+    console.error("requestId n'est pas défini ou est invalide");
+    throw new Error("requestId est manquant");
+  }
+
+  try {
+    const response = await API.post(`/demande/${requestId}/envoyer-au-doyen`);
+    return response.data;
+  } catch (error) {
+    console.error("Erreur lors de l'envoi au doyen : ", error);
+    throw new Error(error.response?.data?.message || 'Erreur lors de l\'envoi au doyen');
+  }
+};
+
+export const rejectDemande = async (id) => {
   const response = await API.delete(`/demande/${id}`);
   return response.data;
 };
+
