@@ -2,14 +2,21 @@
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 
+// react
+import { useContext } from 'react';
+
 // project import
 import NavGroup from './NavGroup';
-import menuItem from 'menu-items';
+import { generateMenuItems } from 'menu-items'; // <= appel de la fonction
+import { AuthContext } from 'contexts/AuthContext'; // <= contexte pour récupérer user
 
 // ==============================|| DRAWER CONTENT - NAVIGATION ||============================== //
 
 export default function Navigation() {
-  const navGroups = menuItem.items.map((item) => {
+  const { user } = useContext(AuthContext); // Récupère l'utilisateur connecté
+  const menuItems = generateMenuItems(user); // Génère dynamiquement les menus selon le rôle
+
+  const navGroups = menuItems.items.map((item) => {
     switch (item.type) {
       case 'group':
         return <NavGroup key={item.id} item={item} />;

@@ -159,7 +159,7 @@ const [confirmAction, setConfirmAction] = useState(null); // { action: 'valider'
       } else if (userRole === 'doyen') {
         response = await sendToResponsable(id);
       } else if (userRole === 'responsable financier') {
-        response = await finaliserDemande(id);
+        response = await finaliserDemande(id); // Valider la demande sans la supprimer
       } else {
         console.error("Rôle non supporté");
         return;
@@ -167,9 +167,14 @@ const [confirmAction, setConfirmAction] = useState(null); // { action: 'valider'
   
       setSnackbar({ open: true, message: 'Demande validée avec succès', severity: 'success' });
   
-      // ✅ Recharge propre des données stockées après validation
-      const updatedRows = JSON.parse(localStorage.getItem('rows')) || [];
+      // Mettre à jour l'état local des demandes
+      const updatedRows = rows.map(row => 
+        row.id === id ? { ...row, statut: 'validée' } : row
+      );
       setRows(updatedRows);
+  
+      // Mettre à jour localStorage après modification
+      localStorage.setItem('rows', JSON.stringify(updatedRows));
   
     } catch (error) {
       console.error("Erreur lors de la validation :", error);

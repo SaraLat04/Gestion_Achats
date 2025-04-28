@@ -57,5 +57,6 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('/demande/{id}/finaliser', [DemandeController::class, 'finaliserDemande']);
     Route::post('/demande/{id}/rejeter', [DemandeController::class, 'reject']);
 
+    Route::middleware('auth:sanctum')->get('/notifications', [DemandeController::class, 'getNotifications']);
 
 });

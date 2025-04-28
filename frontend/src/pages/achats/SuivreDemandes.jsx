@@ -125,18 +125,26 @@ function RequestTableHead({ order, orderBy }) {
 function RequestStatus({ status }) {
   let color, label;
 
-  switch (status) {
-    case 0:
+  switch (status.toLowerCase()) {  // en minuscules pour éviter les problèmes de casse
+    case 'en attente':
       color = 'warning';
       label = 'En attente';
       break;
-    case 1:
-      color = 'success';
-      label = 'Acceptée';
+    case 'envoyée au doyen':
+      color = 'info';
+      label = 'Envoyée au doyen';
       break;
-    case 2:
-      color = 'error';
-      label = 'Rejetée';
+    case 'envoyée au responsable financier':
+      color = 'info';
+      label = 'Envoyée au responsable financier';
+      break;
+    case 'traitée':
+      color = 'success';
+      label = 'Traitée';
+      break;
+    case 'refusé':
+      color = 'error'; // souvent 'error' est utilisé pour un statut négatif
+      label = 'Refusé';
       break;
     default:
       color = 'default';
@@ -150,6 +158,7 @@ function RequestStatus({ status }) {
     </Stack>
   );
 }
+
 
 
 
@@ -184,9 +193,10 @@ const [openUpdateDialog, setOpenUpdateDialog] = useState(false);
           request_no: demande.id,
           description: demande.description ?? '',
           justification: demande.justification ?? '',
-          status: demande.status ?? 0,
+          status: demande.statut ?? 'en attente', // <-- ici on récupère statut
           submit_date: demande.date_demande?.split(' ')[0] ?? 'N/A'
         }));
+        
 
 
         setRows(formattedRows);
@@ -255,9 +265,7 @@ const [openUpdateDialog, setOpenUpdateDialog] = useState(false);
         <TableCell>{row.submit_date}</TableCell>
         <TableCell align="center">
   <Stack direction="row" spacing={1} justifyContent="center">
-  <IconButton color="primary" aria-label="Modifier la demande" onClick={() => handleUpdate(row)}>
-  <EditIcon />
-</IconButton>
+
     <IconButton color="error" aria-label="Supprimer la demande" onClick={() => handleConfirmDelete(row)}>
   <DeleteIcon />
 </IconButton>
@@ -347,10 +355,11 @@ const [openUpdateDialog, setOpenUpdateDialog] = useState(false);
           request_no: demande.id,
           description: demande.description ?? '',
           justification: demande.justification ?? '',
-          status: demande.status ?? 0,
+          status: demande.statut ?? 'en attente',  // <-- ici aussi statut et pas status
           submit_date: demande.date_demande?.split(' ')[0] ?? 'N/A',
-          piece_jointe: demande.piece_jointe ?? null  // <-- Ajout ici
+          piece_jointe: demande.piece_jointe ?? null
         }));
+        
 
         setRows(formattedRows);
       } catch (error) {
@@ -373,4 +382,4 @@ const [openUpdateDialog, setOpenUpdateDialog] = useState(false);
 
 RequestTableHead.propTypes = { order: PropTypes.any, orderBy: PropTypes.string };
 
-RequestStatus.propTypes = { status: PropTypes.number };
+RequestStatus.propTypes = { status: PropTypes.string };

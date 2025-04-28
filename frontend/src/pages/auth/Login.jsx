@@ -14,6 +14,8 @@ import Alert from '@mui/material/Alert';
 import AuthWrapper from 'sections/auth/AuthWrapper';
 
 // ================================|| JWT - LOGIN ||================================ //
+import { useContext } from 'react';
+import { AuthContext } from 'contexts/AuthContext'; // adapte ton chemin si besoin
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -22,26 +24,29 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
-  
-    try {
-      const response = await axios.post('http://localhost:8000/api/login', {
-        email,
-        password,
-      });
-  
-      if (response.data.user) {
-        localStorage.setItem('token', response.data.token || '');
-        localStorage.setItem('user', JSON.stringify(response.data.user));
-        navigate('/dashboard');
-      }
-    } catch (err) {
-      setError('Invalid email or password');
-      console.error('Login failed:', err.response?.data || err.message);
-    }
-  };
+// Dans ton composant Login :
+const { setUser } = useContext(AuthContext);
+const handleLogin = async (e) => {
+  e.preventDefault();
 
+  try {
+    const response = await axios.post('http://localhost:8000/api/login', {
+      email,
+      password,
+    });
+
+    if (response.data.user) {
+      localStorage.setItem('token', response.data.token || '');
+      localStorage.setItem('user', JSON.stringify(response.data.user));
+      setUser(response.data.user); // <= MET à JOUR le contexte Auth
+      navigate('/dashboard/default');
+    }
+    
+  } catch (err) {
+    setError('Invalid email or password');
+    console.error('Login failed:', err.response?.data || err.message);
+  }
+};
   return (
     <AuthWrapper>
       <Grid container spacing={3}>

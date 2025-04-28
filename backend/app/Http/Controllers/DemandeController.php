@@ -252,5 +252,26 @@ public function reject($id)
 
     return response()->json(['message' => 'Demande refusée avec succès']);
 }
+public function getNotifications()
+{
+    $user = auth()->user();
+    $role = $user->role;
+
+    // En fonction du rôle, on filtre sur le statut attendu
+    if ($role === 'secrétaire général') {
+        $demandes = Demande::where('statut', 'en attente')->orderBy('date_demande', 'desc')->get();
+    } elseif ($role === 'doyen') {
+        $demandes = Demande::where('statut', 'envoyée au doyen')->orderBy('date_demande', 'desc')->get();
+    } elseif ($role === 'responsable financier') {
+        $demandes = Demande::where('statut', 'envoyée au responsable financier')->orderBy('date_demande', 'desc')->get();
+    }elseif ($role === 'professeur' || $role === 'chef_depa' || $role === 'directeur labo') {
+        $demandes = Demande::whereIn('statut', ['traitée', 'refusé'])
+        ->orderBy('date_demande', 'desc')->get();
+    } else {
+        $demandes = collect(); // Vide pour les autres
+    }
+
+    return response()->json($demandes);
+}
 
 }

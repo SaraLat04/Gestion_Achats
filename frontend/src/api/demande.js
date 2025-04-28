@@ -110,3 +110,8 @@ export const supprimerDemande = async (id) => {
   const response = await API.delete(`/demande/${id}`);
   return response.data;
 };
+
+export const getNotifications = async () => {
+  const response = await API.get('/notifications');
+  return response.data;
+};
