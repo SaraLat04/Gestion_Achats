@@ -16,6 +16,10 @@ class Demande extends Model
     const STATUT_EN_ATTENTE = 'en attente';
     const STATUT_VALIDE = 'validé';
     const STATUT_REFUSE = 'refusé';
+    const STATUT_ENVOYEE_DOYEN = 'envoyée au doyen';
+    const STATUT_ENVOYEE_RESPONSABLE = 'envoyée au responsable financier';
+    const STATUT_TRAITEE = 'traitée';
+
 
     protected $fillable = [
         'utilisateur_id',
@@ -56,16 +60,23 @@ class Demande extends Model
      * Accesseur pour afficher un label lisible pour le statut
      */
     public function getStatutLabelAttribute()
-    {
-        switch ($this->statut) {
-            case self::STATUT_EN_ATTENTE:
-                return 'En attente';
-            case self::STATUT_VALIDE:
-                return 'Validé';
-            case self::STATUT_REFUSE:
-                return 'Refusé';
-            default:
-                return 'Inconnu';
-        }
+{
+    switch ($this->statut) {
+        case self::STATUT_EN_ATTENTE:
+            return 'En attente';
+        case self::STATUT_VALIDE:
+            return 'Validé';
+        case self::STATUT_REFUSE:
+            return 'Refusé';
+        case self::STATUT_ENVOYEE_DOYEN:
+            return 'Envoyée au doyen';
+        case self::STATUT_ENVOYEE_RESPONSABLE:
+            return 'Envoyée au responsable financier';
+        case self::STATUT_TRAITEE:
+            return 'Traitée';
+        default:
+            return 'Inconnu';
     }
+}
+
 }

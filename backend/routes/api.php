@@ -53,6 +53,9 @@ Route::middleware(['auth:sanctum'])->group(function () {
         // Ajoute ici les autres routes sensibles (validation, etc.)
     });
 
+    Route::post('/demande/{id}/envoyer-au-responsable', [DemandeController::class, 'sendToResponsable']);
+    Route::post('/demande/{id}/finaliser', [DemandeController::class, 'finaliserDemande']);
+    Route::post('/demande/{id}/rejeter', [DemandeController::class, 'reject']);
 
 
 });

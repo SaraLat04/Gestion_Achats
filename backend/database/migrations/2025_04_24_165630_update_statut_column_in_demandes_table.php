@@ -12,9 +12,14 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('demandes', function (Blueprint $table) {
-            $table->enum('statut', ['en attente', 'validé', 'refusé', 'envoyée au doyen'])
-            ->default('en attente')
-            ->change();
+            $table->enum('statut', [
+                'en attente',
+                'validé',
+                'refusé',
+                'envoyée au doyen',
+                'envoyée au responsable financier',
+                'traitée'
+            ])->default('en attente')->change();
         });
     }
 

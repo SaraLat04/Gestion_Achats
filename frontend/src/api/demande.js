@@ -76,7 +76,37 @@ export const sendToDean = async (requestId) => {
 };
 
 export const rejectDemande = async (id) => {
-  const response = await API.delete(`/demande/${id}`);
+  const response = await API.post(`/demande/${id}/rejeter`);
   return response.data;
 };
 
+export const sendToResponsable = async (requestId) => {
+  if (!requestId) throw new Error("requestId est manquant");
+
+  try {
+    const response = await API.post(`/demande/${requestId}/envoyer-au-responsable`);
+    return response.data;
+  } catch (error) {
+    console.error("Erreur lors de l'envoi au responsable financier : ", error);
+    throw new Error(error.response?.data?.message || 'Erreur lors de l\'envoi au responsable financier');
+  }
+};
+
+export const finaliserDemande = async (requestId) => {
+  if (!requestId) throw new Error("requestId est manquant");
+
+  try {
+    const response = await API.post(`/demande/${requestId}/finaliser`);
+    return response.data;
+  } catch (error) {
+    console.error("Erreur lors de la finalisation de la demande : ", error);
+    throw new Error(error.response?.data?.message || 'Erreur lors de la finalisation de la demande');
+  }
+};
+
+
+// Supprimer une demande
+export const supprimerDemande = async (id) => {
+  const response = await API.delete(`/demande/${id}`);
+  return response.data;
+};

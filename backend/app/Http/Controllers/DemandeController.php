@@ -137,24 +137,31 @@ class DemandeController extends Controller
     }
 
     public function all()
-{
-    $user = auth()->user();
+    {
+        $user = auth()->user();
 
-    if ($user->role === 'doyen') {
-        // Le doyen ne voit que les demandes avec le statut "envoyée au doyen"
-        $demandes = Demande::with('produitsTemp', 'utilisateur')
-            ->where('statut', 'envoyée au doyen')
-            ->orderBy('date_demande', 'desc')
-            ->get();
-    } else {
-        // Les autres utilisateurs voient toutes les demandes
-        $demandes = Demande::with('produitsTemp', 'utilisateur')
-            ->orderBy('date_demande', 'desc')
-            ->get();
+        if ($user->role === 'doyen') {
+            // Le doyen voit seulement les demandes envoyées au doyen
+            $demandes = Demande::with('produitsTemp', 'utilisateur')
+                ->whereIn('statut', ['envoyée au doyen', 'envoyée au responsable financier'])
+                ->orderBy('date_demande', 'desc')
+                ->get();
+        } elseif ($user->role === 'responsable financier') {
+            // Le responsable financier voit seulement les demandes envoyées à lui
+            $demandes = Demande::with('produitsTemp', 'utilisateur')
+                ->where('statut', 'envoyée au responsable financier')
+                ->orderBy('date_demande', 'desc')
+                ->get();
+        } else {
+            // Les autres (ex: secrétaire générale) voient toutes les demandes
+            $demandes = Demande::with('produitsTemp', 'utilisateur')
+                ->orderBy('date_demande', 'desc')
+                ->get();
+        }
+
+        return response()->json($demandes);
     }
 
-    return response()->json($demandes);
-}
 
 
     public function sendToDean($id)
@@ -162,31 +169,88 @@ class DemandeController extends Controller
         // Récupérer l'utilisateur connecté et afficher son rôle pour vérification
         $user = Auth::user();
         $role = $user->role;
-        
+
         // Afficher ou retourner le rôle de l'utilisateur connecté (pour vérifier)
         \Log::info("Utilisateur connecté: " . $user->nom . " avec le rôle: " . $role);
-        
+
         // Vérifier que l'utilisateur connecté est la secrétaire générale
         // if ($role !== UserRole::DEMANDEUR) {
         //      return response()->json(['error' => 'Accès refusé. Vous n\'êtes pas la secrétaire générale.'], 403);
         //  }
-    
+
         // Récupérer la demande par son ID
         $demande = Demande::find($id);
         if (!$demande) {
             return response()->json(['error' => 'Demande non trouvée.'], 404);
         }
-    
+
         // Mettre à jour l'état de la demande pour indiquer qu'elle a été validée par la secrétaire générale
         $demande->statut = 'envoyée au doyen';  // ou un autre état selon ton modèle
         $demande->save();
-    
+
         // Une fois la validation effectuée par la secrétaire générale, l'envoyer au doyen
         // Tu pourrais par exemple notifier le doyen ici via un email ou une notification interne.
         // Si tu veux une logique simple, tu peux juste retourner une confirmation ici.
-    
+
         return response()->json(['success' => 'Demande envoyée au doyen avec succès.']);
     }
-    
+
+// Quand le doyen valide -> envoi au responsable financier
+public function sendToResponsable($id)
+{
+    $user = Auth::user();
+    $role = $user->role;
+
+    \Log::info("Utilisateur connecté: " . $user->nom . " avec le rôle: " . $role);
+
+    $demande = Demande::find($id);
+    if (!$demande) {
+        return response()->json(['error' => 'Demande non trouvée.'], 404);
+    }
+
+    // Le doyen doit être connecté ici
+    if ($role !== 'doyen') {
+        return response()->json(['error' => 'Accès refusé. Vous n\'êtes pas le doyen.'], 403);
+    }
+
+    $demande->statut = 'envoyée au responsable financier';
+    $demande->save();
+
+    return response()->json(['success' => 'Demande envoyée au responsable financier avec succès.']);
+}
+
+// Quand le responsable financier valide -> demande traitée
+public function finaliserDemande($id)
+{
+    $user = Auth::user();
+    $role = $user->role;
+
+    \Log::info("Utilisateur connecté: " . $user->nom . " avec le rôle: " . $role);
+
+    $demande = Demande::find($id);
+    if (!$demande) {
+        \Log::error("Demande avec l'ID $id non trouvée.");
+        return response()->json(['error' => 'Demande non trouvée.'], 404);
+    }
+
+    if ($role !== 'responsable financier') {
+        \Log::error("Accès refusé. L'utilisateur avec le rôle $role n'est pas un responsable financier.");
+        return response()->json(['error' => 'Accès refusé. Vous n\'êtes pas le responsable financier.'], 403);
+    }
+
+    $demande->statut = 'traitée';
+    $demande->save();
+
+    return response()->json(['success' => 'Demande traitée avec succès.']);
+}
+public function reject($id)
+{
+    $demande = Demande::findOrFail($id);
+
+    $demande->statut = 'refusé'; // Attention ici à l'orthographe
+    $demande->save();
+
+    return response()->json(['message' => 'Demande refusée avec succès']);
+}
 
 }

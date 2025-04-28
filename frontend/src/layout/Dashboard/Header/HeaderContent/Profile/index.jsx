@@ -30,6 +30,9 @@ import SettingOutlined from '@ant-design/icons/SettingOutlined';
 import UserOutlined from '@ant-design/icons/UserOutlined';
 import avatar1 from 'assets/images/users/avatar-1.png';
 
+import { useNavigate } from 'react-router-dom';
+import auth from '../../../../../api/auth'; // chemin vers ton fichier auth.js
+
 // tab panel wrapper
 function TabPanel({ children, value, index, ...other }) {
   return (
@@ -69,6 +72,19 @@ export default function Profile() {
   const handleChange = (event, newValue) => {
     setValue(newValue);
   };
+  const navigate = useNavigate();
+
+  const [loading, setLoading] = useState(false);
+
+  const handleLogout = () => {
+    console.log('Logout clicked'); // juste pour vérifier
+    navigate('/login');
+  };
+  
+  
+  
+
+  const user = JSON.parse(localStorage.getItem('user'));
 
   return (
     <Box sx={{ flexShrink: 0, ml: 0.75 }}>
@@ -90,7 +106,7 @@ export default function Profile() {
         <Stack direction="row" sx={{ gap: 1.25, alignItems: 'center', p: 0.5 }}>
           <Avatar alt="profile user" src={avatar1} size="sm" />
           <Typography variant="subtitle1" sx={{ textTransform: 'capitalize' }}>
-            John Doe
+          {user ? `${user.nom} ${user.prenom}` : 'John Doe'}
           </Typography>
         </Stack>
       </ButtonBase>
@@ -131,11 +147,12 @@ export default function Profile() {
                         </Stack>
                       </Grid>
                       <Grid>
-                        <Tooltip title="Logout">
-                          <IconButton size="large" sx={{ color: 'text.primary' }}>
-                            <LogoutOutlined />
-                          </IconButton>
-                        </Tooltip>
+                      <Tooltip title="Logout">
+                        <IconButton size="large" sx={{ color: 'text.primary' }} onClick={handleLogout}>
+                          <LogoutOutlined />
+                        </IconButton>
+                      </Tooltip>
+
                       </Grid>
                     </Grid>
                   </CardContent>
