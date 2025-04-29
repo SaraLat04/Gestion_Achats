@@ -1,5 +1,3 @@
-// menu-items/index.jsx
-
 import dashboard from './dashboard';
 import pages from './page';
 import achats from './achats';
@@ -18,3 +16,9 @@ export function generateMenuItems(user) {
     items: [dashboard, pages, filteredAchats]
   };
 }
+
+// Ajout à la fin :
+const user = JSON.parse(localStorage.getItem('user'));
+const menuItems = generateMenuItems(user);
+
+export default menuItems;

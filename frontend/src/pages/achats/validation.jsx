@@ -113,28 +113,119 @@ const [confirmAction, setConfirmAction] = useState(null); // { action: 'valider'
   }, []);
   
 
-  const viewPDF = (row) => {
+  const viewPDF = async (row) => {
+    // 1. Initialiser le document PDF
     const doc = new jsPDF();
-
-    const img = new Image();
-    img.src = logo;
-    img.onload = () => {
-      doc.addImage(img, 'PNG', 10, 10, 30, 30);
-      doc.setFontSize(18);
-      doc.text('Fiche de demande', 105, 25, null, null, 'center');
-
-      doc.setFontSize(12);
-      doc.text(`Numéro de demande : ${row.id}`, 14, 50);
-      doc.text(`Nom du demandeur : ${row.utilisateur?.nom || 'Inconnu'}`, 14, 60);
-      doc.text(`Département : ${row.departement}`, 14, 70);
-      doc.text('Description :', 14, 80);
-      doc.text(`${row.description}`, 14, 90, { maxWidth: 180 });
-
-      const blob = doc.output('blob');
-      const url = URL.createObjectURL(blob);
-      setPdfUrl(url);
-      setOpenPdf(true);
-    };
+  
+    // 2. Charger la police arabe (à placer dans public/fonts/)
+    try {
+      const response = await fetch('/fonts/amiri-regular.ttf');
+      const fontData = await response.arrayBuffer();
+      doc.addFileToVFS('amiri.ttf', fontData);
+      doc.addFont('amiri.ttf', 'Amiri', 'normal');
+    } catch (error) {
+      console.error("Erreur de chargement de la police arabe:", error);
+    }
+  
+    // 3. Partie française (gauche)
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(12);
+    doc.text("ROYAUME DU MAROC", 14, 20);
+    doc.text("Université Cadi Ayyad", 14, 27);
+    doc.text("Faculté des Sciences et Techniques", 14, 34);
+    doc.text("Gueliz - Marrakech", 14, 41);
+    doc.text("Service des Achats", 14, 48);
+  
+    // 4. Partie arabe (droite)
+    doc.setFont('Amiri', 'normal');
+    doc.setFontSize(12);
+    
+    // Textes arabes avec positions
+    const arabicTexts = [
+      { text: 'المملكة المغربية', y: 20 }, // Royaume du Maroc
+      { text: 'جامعة القاضي عياض', y: 27 }, // Université Cadi Ayyad
+      { text: 'كلية العلوم والتقنيات', y: 34 }, // Faculté des Sciences et Techniques
+      { text: 'كيليز - مراكش', y: 41 }, // Gueliz - Marrakech
+      { text: 'مصلحة المشتريات', y: 48 } // Service des Achats
+    ];
+  
+    arabicTexts.forEach(item => {
+      doc.text(item.text, 195, item.y, { align: 'right' });
+    });
+  
+    // 5. Ligne de séparation
+    doc.setDrawColor(0);
+    doc.line(10, 55, 200, 55);
+  
+    // 6. Titre principal
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.text("DEMANDE D'ACHAT", 105, 65, { align: 'center' });
+  
+    // 7. Section Description
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text("Description :", 14, 80);
+    doc.setFont('helvetica', 'normal');
+    const descriptionLines = doc.splitTextToSize(row.description || 'Aucune description fournie', 180);
+    doc.text(descriptionLines, 20, 90);
+  
+    // 8. Section Justification
+    const descHeight = descriptionLines.length * 7;
+    doc.setFont('helvetica', 'bold');
+    doc.text("Justification :", 14, 90 + descHeight + 10);
+    doc.setFont('helvetica', 'normal');
+    const justificationLines = doc.splitTextToSize(row.justification || 'Aucune justification fournie', 180);
+    doc.text(justificationLines, 20, 90 + descHeight + 20);
+  
+    // 9. Section Produits
+    const startY = 90 + descHeight + 20 + (justificationLines.length * 7) + 15;
+    const products = row.produits || [];
+  
+    if (products.length > 0) {
+      doc.setFont('helvetica', 'bold');
+      doc.text("Liste des Produits :", 14, startY - 5);
+  
+      // Préparation des données pour le tableau
+      const productsData = products.map((prod, index) => [
+        index + 1,
+        prod.nom || 'Non spécifié',
+        prod.quantite || 0,
+        prod.unite || 'U'
+      ]);
+  
+      // Création du tableau
+      doc.autoTable({
+        startY: startY,
+        head: [['N°', 'Désignation', 'Quantité', 'Unité']],
+        body: productsData,
+        margin: { left: 14 },
+        headStyles: {
+          fillColor: [41, 128, 185],
+          textColor: 255,
+          fontStyle: 'bold'
+        },
+        styles: {
+          fontSize: 10,
+          cellPadding: 3
+        },
+        columnStyles: {
+          0: { cellWidth: 15 },
+          1: { cellWidth: 120 },
+          2: { cellWidth: 30 },
+          3: { cellWidth: 25 }
+        }
+      });
+    } else {
+      doc.setFont('helvetica', 'italic');
+      doc.text("Aucun produit listé dans cette demande.", 14, startY + 10);
+    }
+  
+    // 10. Générer le PDF
+    const blob = doc.output('blob');
+    const url = URL.createObjectURL(blob);
+    setPdfUrl(url);
+    setOpenPdf(true);
   };
 
   const handleClosePdf = () => {

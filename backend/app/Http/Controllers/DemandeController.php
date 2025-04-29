@@ -141,15 +141,15 @@ class DemandeController extends Controller
         $user = auth()->user();
 
         if ($user->role === 'doyen') {
-            // Le doyen voit seulement les demandes envoyées au doyen
+            // Le doyen voit les demandes envoyées au doyen, envoyées au responsable financier, ou traitées
             $demandes = Demande::with('produitsTemp', 'utilisateur')
-                ->whereIn('statut', ['envoyée au doyen', 'envoyée au responsable financier'])
+                ->whereIn('statut', ['envoyée au doyen', 'envoyée au responsable financier', 'traitée'])
                 ->orderBy('date_demande', 'desc')
                 ->get();
         } elseif ($user->role === 'responsable financier') {
-            // Le responsable financier voit seulement les demandes envoyées à lui
+            // Le responsable financier voit les demandes envoyées à lui, ou traitées
             $demandes = Demande::with('produitsTemp', 'utilisateur')
-                ->where('statut', 'envoyée au responsable financier')
+                ->whereIn('statut', ['envoyée au responsable financier', 'traitée'])
                 ->orderBy('date_demande', 'desc')
                 ->get();
         } else {
@@ -161,6 +161,8 @@ class DemandeController extends Controller
 
         return response()->json($demandes);
     }
+
+
 
 
 
@@ -195,83 +197,83 @@ class DemandeController extends Controller
         return response()->json(['success' => 'Demande envoyée au doyen avec succès.']);
     }
 
-// Quand le doyen valide -> envoi au responsable financier
-public function sendToResponsable($id)
-{
-    $user = Auth::user();
-    $role = $user->role;
+    // Quand le doyen valide -> envoi au responsable financier
+    public function sendToResponsable($id)
+    {
+        $user = Auth::user();
+        $role = $user->role;
 
-    \Log::info("Utilisateur connecté: " . $user->nom . " avec le rôle: " . $role);
+        \Log::info("Utilisateur connecté: " . $user->nom . " avec le rôle: " . $role);
 
-    $demande = Demande::find($id);
-    if (!$demande) {
-        return response()->json(['error' => 'Demande non trouvée.'], 404);
+        $demande = Demande::find($id);
+        if (!$demande) {
+            return response()->json(['error' => 'Demande non trouvée.'], 404);
+        }
+
+        // Le doyen doit être connecté ici
+        if ($role !== 'doyen') {
+            return response()->json(['error' => 'Accès refusé. Vous n\'êtes pas le doyen.'], 403);
+        }
+
+        $demande->statut = 'envoyée au responsable financier';
+        $demande->save();
+
+        return response()->json(['success' => 'Demande envoyée au responsable financier avec succès.']);
     }
 
-    // Le doyen doit être connecté ici
-    if ($role !== 'doyen') {
-        return response()->json(['error' => 'Accès refusé. Vous n\'êtes pas le doyen.'], 403);
+    // Quand le responsable financier valide -> demande traitée
+    public function finaliserDemande($id)
+    {
+        $user = Auth::user();
+        $role = $user->role;
+
+        \Log::info("Utilisateur connecté: " . $user->nom . " avec le rôle: " . $role);
+
+        $demande = Demande::find($id);
+        if (!$demande) {
+            \Log::error("Demande avec l'ID $id non trouvée.");
+            return response()->json(['error' => 'Demande non trouvée.'], 404);
+        }
+
+        if ($role !== 'responsable financier') {
+            \Log::error("Accès refusé. L'utilisateur avec le rôle $role n'est pas un responsable financier.");
+            return response()->json(['error' => 'Accès refusé. Vous n\'êtes pas le responsable financier.'], 403);
+        }
+
+        $demande->statut = 'traitée';
+        $demande->save();
+
+        return response()->json(['success' => 'Demande traitée avec succès.']);
     }
+    public function reject($id)
+    {
+        $demande = Demande::findOrFail($id);
 
-    $demande->statut = 'envoyée au responsable financier';
-    $demande->save();
+        $demande->statut = 'refusé'; // Attention ici à l'orthographe
+        $demande->save();
 
-    return response()->json(['success' => 'Demande envoyée au responsable financier avec succès.']);
-}
-
-// Quand le responsable financier valide -> demande traitée
-public function finaliserDemande($id)
-{
-    $user = Auth::user();
-    $role = $user->role;
-
-    \Log::info("Utilisateur connecté: " . $user->nom . " avec le rôle: " . $role);
-
-    $demande = Demande::find($id);
-    if (!$demande) {
-        \Log::error("Demande avec l'ID $id non trouvée.");
-        return response()->json(['error' => 'Demande non trouvée.'], 404);
+        return response()->json(['message' => 'Demande refusée avec succès']);
     }
+    public function getNotifications()
+    {
+        $user = auth()->user();
+        $role = $user->role;
 
-    if ($role !== 'responsable financier') {
-        \Log::error("Accès refusé. L'utilisateur avec le rôle $role n'est pas un responsable financier.");
-        return response()->json(['error' => 'Accès refusé. Vous n\'êtes pas le responsable financier.'], 403);
+        // En fonction du rôle, on filtre sur le statut attendu
+        if ($role === 'secrétaire général') {
+            $demandes = Demande::where('statut', 'en attente')->orderBy('date_demande', 'desc')->get();
+        } elseif ($role === 'doyen') {
+            $demandes = Demande::where('statut', 'envoyée au doyen')->orderBy('date_demande', 'desc')->get();
+        } elseif ($role === 'responsable financier') {
+            $demandes = Demande::where('statut', 'envoyée au responsable financier')->orderBy('date_demande', 'desc')->get();
+        } elseif ($role === 'professeur' || $role === 'chef_depa' || $role === 'directeur labo') {
+            $demandes = Demande::whereIn('statut', ['traitée', 'refusé'])
+                ->orderBy('date_demande', 'desc')->get();
+        } else {
+            $demandes = collect(); // Vide pour les autres
+        }
+
+        return response()->json($demandes);
     }
-
-    $demande->statut = 'traitée';
-    $demande->save();
-
-    return response()->json(['success' => 'Demande traitée avec succès.']);
-}
-public function reject($id)
-{
-    $demande = Demande::findOrFail($id);
-
-    $demande->statut = 'refusé'; // Attention ici à l'orthographe
-    $demande->save();
-
-    return response()->json(['message' => 'Demande refusée avec succès']);
-}
-public function getNotifications()
-{
-    $user = auth()->user();
-    $role = $user->role;
-
-    // En fonction du rôle, on filtre sur le statut attendu
-    if ($role === 'secrétaire général') {
-        $demandes = Demande::where('statut', 'en attente')->orderBy('date_demande', 'desc')->get();
-    } elseif ($role === 'doyen') {
-        $demandes = Demande::where('statut', 'envoyée au doyen')->orderBy('date_demande', 'desc')->get();
-    } elseif ($role === 'responsable financier') {
-        $demandes = Demande::where('statut', 'envoyée au responsable financier')->orderBy('date_demande', 'desc')->get();
-    }elseif ($role === 'professeur' || $role === 'chef_depa' || $role === 'directeur labo') {
-        $demandes = Demande::whereIn('statut', ['traitée', 'refusé'])
-        ->orderBy('date_demande', 'desc')->get();
-    } else {
-        $demandes = collect(); // Vide pour les autres
-    }
-
-    return response()->json($demandes);
-}
 
 }
