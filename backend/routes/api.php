@@ -7,6 +7,9 @@ use App\Http\Controllers\DemandeController;
 use App\Http\Controllers\ProduitController;
 use App\Http\Controllers\UtilisateurController;
 use App\Enums\UserRole;
+use App\Http\Controllers\CategorieController;
+use App\Http\Controllers\FournisseurController;
+use App\Http\Controllers\MouvementStockController;
 
 /*
 |--------------------------------------------------------------------------
@@ -58,5 +61,42 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('/demande/{id}/rejeter', [DemandeController::class, 'reject']);
 
     Route::middleware('auth:sanctum')->get('/notifications', [DemandeController::class, 'getNotifications']);
+
+    // Routes pour les produits
+    Route::prefix('produits')->group(function () {
+        Route::get('/', [ProduitController::class, 'index']);
+        Route::get('/{id}', [ProduitController::class, 'show']);
+        Route::post('/', [ProduitController::class, 'store']);
+        Route::put('/{id}', [ProduitController::class, 'update']);
+        Route::delete('/{id}', [ProduitController::class, 'destroy']);
+        Route::get('/search', [ProduitController::class, 'search']);
+        Route::get('/statistiques', [ProduitController::class, 'getStatistiques']);
+    });
+
+    // Routes pour les catégories
+    Route::prefix('categories')->group(function () {
+        Route::get('/', [CategorieController::class, 'index']);
+        Route::get('/{id}', [CategorieController::class, 'show']);
+        Route::post('/', [CategorieController::class, 'store']);
+        Route::put('/{id}', [CategorieController::class, 'update']);
+        Route::delete('/{id}', [CategorieController::class, 'destroy']);
+        Route::get('/statistiques', [CategorieController::class, 'getStatistiques']);
+    });
+
+    // Routes pour les fournisseurs
+    Route::prefix('fournisseurs')->group(function () {
+        Route::get('/', [FournisseurController::class, 'index']);
+        Route::get('/{id}', [FournisseurController::class, 'show']);
+        Route::post('/', [FournisseurController::class, 'store']);
+        Route::put('/{id}', [FournisseurController::class, 'update']);
+        Route::delete('/{id}', [FournisseurController::class, 'destroy']);
+        Route::get('/search', [FournisseurController::class, 'search']);
+        Route::get('/statistiques', [FournisseurController::class, 'getStatistiques']);
+    });
+
+    // Routes pour les mouvements de stock
+    Route::get('/mouvements-stock', [MouvementStockController::class, 'index']);
+    Route::post('/mouvements-stock', [MouvementStockController::class, 'store']);
+    Route::get('/produits/{produit}/stock', [MouvementStockController::class, 'getStockProduit']);
 
 });

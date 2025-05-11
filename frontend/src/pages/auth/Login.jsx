@@ -15,7 +15,7 @@ import AuthWrapper from 'sections/auth/AuthWrapper';
 
 // ================================|| JWT - LOGIN ||================================ //
 import { useContext } from 'react';
-import { AuthContext } from 'contexts/AuthContext'; // adapte ton chemin si besoin
+import { AuthContext } from 'contexts/AuthContext';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -23,30 +23,33 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { setUser } = useContext(AuthContext);
 
-// Dans ton composant Login :
-const { setUser } = useContext(AuthContext);
-const handleLogin = async (e) => {
-  e.preventDefault();
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
 
-  try {
-    const response = await axios.post('http://localhost:8000/api/login', {
-      email,
-      password,
-    });
+    try {
+      const response = await axios.post('/api/login', {
+        email,
+        password,
+      });
 
-    if (response.data.user) {
-      localStorage.setItem('token', response.data.token || '');
-      localStorage.setItem('user', JSON.stringify(response.data.user));
-      setUser(response.data.user); // <= MET à JOUR le contexte Auth
-      navigate('/dashboard/default');
+      if (response.data.user) {
+        localStorage.setItem('token', response.data.token || '');
+        localStorage.setItem('user', JSON.stringify(response.data.user));
+        setUser(response.data.user);
+        navigate('/dashboard/default');
+      }
+    } catch (err) {
+      setError('Invalid email or password');
+      console.error('Login failed:', err.response?.data || err.message);
+    } finally {
+      setLoading(false);
     }
-    
-  } catch (err) {
-    setError('Invalid email or password');
-    console.error('Login failed:', err.response?.data || err.message);
-  }
-};
+  };
+
   return (
     <AuthWrapper>
       <Grid container spacing={3}>

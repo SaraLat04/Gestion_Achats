@@ -16,6 +16,11 @@ const CreerDemande = Loadable(lazy(() => import('pages/achats/CreerDemande')));
 const SuivreDemandes = Loadable(lazy(() => import('pages/achats/SuivreDemandes')));
 const Validation = Loadable(lazy(() => import('pages/achats/Validation')));
 const Produits = Loadable(lazy(() => import('pages/achats/Produits')));
+const GestionStock = Loadable(lazy(() => import('pages/achats/GestionStock')));
+const MouvementsStock = Loadable(lazy(() => import('pages/achats/MouvementsStock')));
+const AlertesStock = Loadable(lazy(() => import('pages/achats/AlertesStock')));
+const Inventaires = Loadable(lazy(() => import('pages/achats/Inventaires')));
+const Categories = Loadable(lazy(() => import('pages/achats/Categories')));
 
 const SamplePage = Loadable(lazy(() => import('pages/extra-pages/sample-page')));
 const Unauthorized = Loadable(lazy(() => import('../pages/Errors/Unauthorized.jsx')));
@@ -80,11 +85,52 @@ const MainRoutes = {
         </PrivateRouteByRole>
       )
     },
+    // ==============================|| MAGASINIER ROUTES ||============================== //
     {
       path: 'produits',
       element: (
-        <PrivateRouteByRole allowedRoles={['mgasinier']}>
+        <PrivateRouteByRole allowedRoles={['magasinier']}>
           <Produits />
+        </PrivateRouteByRole>
+      )
+    },
+    {
+      path: 'categories',
+      element: (
+        <PrivateRouteByRole allowedRoles={['magasinier']}>
+          <Categories />
+        </PrivateRouteByRole>
+      )
+    },
+    {
+      path: 'gestion-stock',
+      element: (
+        <PrivateRouteByRole allowedRoles={['magasinier']}>
+          <GestionStock />
+        </PrivateRouteByRole>
+      )
+    },
+    {
+      path: 'mouvements-stock',
+      element: (
+        <PrivateRouteByRole allowedRoles={['magasinier']}>
+          <MouvementsStock />
+        </PrivateRouteByRole>
+      )
+    },
+    {
+      path: 'alertes-stock',
+      element: (
+        <PrivateRouteByRole allowedRoles={['magasinier']}>
+          <AlertesStock />
+        </PrivateRouteByRole>
+      )
+    },
+    {
+      path: 'inventaires',
+      element: (
+        <PrivateRouteByRole allowedRoles={['magasinier']}>
+          <Inventaires />
         </PrivateRouteByRole>
       )
     },
