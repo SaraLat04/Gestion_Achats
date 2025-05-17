@@ -5,7 +5,6 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DemandeController;
 use App\Http\Controllers\ProduitController;
-use App\Http\Controllers\UtilisateurController;
 use App\Enums\UserRole;
 use App\Http\Controllers\CategorieController;
 use App\Http\Controllers\FournisseurController;
@@ -20,7 +19,8 @@ use App\Http\Controllers\MouvementStockController;
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::get('/roles', [AuthController::class, 'getRoles']);
-
+Route::get('/departements', [AuthController::class, 'getDepartements']);
+Route::get('/utilisateurs/{id}', [AuthController::class, 'getUserById']);
 // Route pour récupérer l'utilisateur connecté
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return response()->json([
@@ -35,6 +35,7 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 // Routes protégées
 Route::middleware(['auth:sanctum'])->group(function () {
 
+
     // ✅ Routes accessibles à tout utilisateur connecté
     Route::get('/demandes', [DemandeController::class, 'index']);
     Route::get('/allDemandes', [DemandeController::class, 'all']);
@@ -43,7 +44,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::delete('/demande/{id}', [DemandeController::class, 'destroy']);
     Route::get('/statistiques-demandes', [DemandeController::class, 'getStatistiques']);
     Route::post('/demande/{id}/envoyer-au-doyen', [DemandeController::class, 'sendToDean']);
-
+Route::post('/demande/{id}/envoyer-au-secretaire-general', [DemandeController::class, 'sendToSecretaireGeneral']);
     Route::get('/produits', [ProduitController::class, 'index']);
     Route::post('/produits', [ProduitController::class, 'store']);
     Route::get('/produits/{id}', [ProduitController::class, 'show']);
@@ -56,12 +57,13 @@ Route::middleware(['auth:sanctum'])->group(function () {
         // Ajoute ici les autres routes sensibles (validation, etc.)
     });
 
+
     Route::post('/demande/{id}/envoyer-au-responsable', [DemandeController::class, 'sendToResponsable']);
     Route::post('/demande/{id}/finaliser', [DemandeController::class, 'finaliserDemande']);
     Route::post('/demande/{id}/rejeter', [DemandeController::class, 'reject']);
 
     Route::middleware('auth:sanctum')->get('/notifications', [DemandeController::class, 'getNotifications']);
-
+    Route::middleware('auth:sanctum')->get('/alerte-stock', [ProduitController::class, 'getProduitsStockFaible']);
     // Routes pour les produits
     Route::prefix('produits')->group(function () {
         Route::get('/', [ProduitController::class, 'index']);
@@ -71,6 +73,9 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::delete('/{id}', [ProduitController::class, 'destroy']);
         Route::get('/search', [ProduitController::class, 'search']);
         Route::get('/statistiques', [ProduitController::class, 'getStatistiques']);
+        // routes/api.php
+
+
     });
 
     // Routes pour les catégories

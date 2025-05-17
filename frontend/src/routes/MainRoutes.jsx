@@ -64,7 +64,7 @@ const MainRoutes = {
     {
       path: 'creer-demande',
       element: (
-        <PrivateRouteByRole allowedRoles={['directeur labo', 'professeur','chef_depa']}>
+        <PrivateRouteByRole allowedRoles={['professeur']}>
           <CreerDemande />
         </PrivateRouteByRole>
       )
@@ -72,7 +72,7 @@ const MainRoutes = {
     {
       path: 'suivre-demandes',
       element: (
-        <PrivateRouteByRole allowedRoles={['directeur labo', 'professeur','chef_depa']}>
+        <PrivateRouteByRole allowedRoles={['professeur']}>
           <SuivreDemandes />
         </PrivateRouteByRole>
       )
@@ -80,7 +80,7 @@ const MainRoutes = {
     {
       path: 'validation',
       element: (
-        <PrivateRouteByRole allowedRoles={['secrétaire général', 'responsable financier' , 'doyen']}>
+        <PrivateRouteByRole allowedRoles={['chef_depa','secrétaire général' , 'doyen']}>
           <Validation />
         </PrivateRouteByRole>
       )

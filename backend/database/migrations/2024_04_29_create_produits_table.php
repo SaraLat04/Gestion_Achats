@@ -15,11 +15,12 @@ return new class extends Migration
             $table->id();
             $table->string('code')->unique();
             $table->string('nom');
-            $table->string('description')->nullable();
-            $table->decimal('prix_unitaire', 10, 2);
-            $table->decimal('quantite_stock', 10, 2)->default(0);
-            $table->string('unite_mesure');
+            $table->string('marque');
             $table->foreignId('categorie_id')->constrained('categories');
+            $table->decimal('quantite', 10, 2)->default(0);
+            $table->string('unite');
+            $table->decimal('prix', 10, 2);
+            $table->string('image')->nullable();
             $table->timestamps();
         });
     }
@@ -31,4 +32,4 @@ return new class extends Migration
     {
         Schema::dropIfExists('produits');
     }
-}; 
+};

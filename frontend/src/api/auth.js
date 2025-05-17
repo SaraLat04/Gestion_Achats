@@ -10,20 +10,15 @@ const login = async (email, password) => {
   return response.data;
 };
 
-const register = async (nom, prenom, email, password, role) => {
-  const response = await axios.post('/register', {
-    nom,
-    prenom,
-    email,
-    password,
-    role,
+const register = async (formData) => {
+  return axios.post('/register', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
   });
-  if (response.data.token) {
-    localStorage.setItem('user', JSON.stringify(response.data.user));
-    localStorage.setItem('token', response.data.token);
-  }
-  return response.data;
 };
+
+
 
 const logout = async () => {
   await axios.post('/logout');

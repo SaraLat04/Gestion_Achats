@@ -17,6 +17,7 @@ class Demande extends Model
     const STATUT_VALIDE = 'validé';
     const STATUT_REFUSE = 'refusé';
     const STATUT_ENVOYEE_DOYEN = 'envoyée au doyen';
+    const STATUT_ENVOYEE_SECRETAIRE = 'envoyée au secre';
     const STATUT_ENVOYEE_RESPONSABLE = 'envoyée au responsable financier';
     const STATUT_TRAITEE = 'traitée';
 
@@ -70,6 +71,8 @@ class Demande extends Model
             return 'Refusé';
         case self::STATUT_ENVOYEE_DOYEN:
             return 'Envoyée au doyen';
+        case self::STATUT_ENVOYEE_SECRETAIRE:
+            return 'Envoyée au secrétaire général';
         case self::STATUT_ENVOYEE_RESPONSABLE:
             return 'Envoyée au responsable financier';
         case self::STATUT_TRAITEE:

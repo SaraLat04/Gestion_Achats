@@ -3,24 +3,27 @@
 namespace App\Models;
 
 use App\Enums\UserRole;
+use App\Models\Demande;
+use App\Enums\Departement;
+use Laravel\Sanctum\HasApiTokens;
+use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Notifications\Notifiable;
-use Laravel\Sanctum\HasApiTokens;
-use App\Models\Demande;
 
 class Utilisateur extends Authenticatable
 {
     use HasFactory, Notifiable, HasApiTokens;
 
     protected $fillable = [
-        'nom',
-        'prenom',
-        'email',
-        'password',
-        'role',
-        'departement',
-    ];
+    'nom',
+    'prenom',
+    'email',
+    'password',
+    'role',
+    'departement',
+    'photo', // ✅ AJOUTE ÇA
+];
+
 
     protected $hidden = [
         'password',
@@ -56,6 +59,18 @@ class Utilisateur extends Authenticatable
         $this->attributes['role'] = $role->value;
     }
 
+    public function getDepartementEnumAttribute(): ?Departement
+    {
+        return Departement::tryFrom($this->departement);
+    }
+
+    /**
+     * Mutator pour définir le département en utilisant l'enum
+     */
+    public function setDepartementEnumAttribute(Departement $departement)
+    {
+        $this->attributes['departement'] = $departement->value;
+    }
     /**
      * Helpers pratiques pour tester les rôles
      */

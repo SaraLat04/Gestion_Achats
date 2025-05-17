@@ -65,3 +65,11 @@ export const deleteProduit = async (id) => {
   const response = await axios.delete(`/produits/${id}`);
   return response.data;
 };
+
+
+export const getAlerteStock = async () => {
+  const response = await axios.get('/alerte-stock'); // au lieu de /produits/alerte-stock
+  return response.data;
+};
+
+

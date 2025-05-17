@@ -45,6 +45,9 @@ const actionSX = {
 // ==============================|| HEADER CONTENT - NOTIFICATION ||============================== //
 
 import { getNotifications } from '../../../../api/demande'; // Assure-toi que le chemin est correct
+import { getAlerteStock } from '../../../../api/produit'; // en plus de getNotifications
+
+import { getUserById } from '../../../../api/utilisateur';
 
 export default function Notification() {
   const navigate = useNavigate(); // Hook pour la redirection
@@ -53,7 +56,7 @@ export default function Notification() {
   const [read, setRead] = useState(0);
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
-
+  const [userRole, setUserRole] = useState('');
   const handleToggle = () => {
     setOpen((prevOpen) => !prevOpen);
   };
@@ -65,20 +68,74 @@ export default function Notification() {
     setOpen(false);
   };
 
-  // Fetch notifications from API
-  useEffect(() => {
-    const fetchNotifications = async () => {
-      try {
-        const data = await getNotifications(); // Appel à l'API
-        setNotifications(data);
-        setRead(data.length);
-      } catch (error) {
-        console.error('Erreur lors de la récupération des notifications:', error);
-      }
-    };
 
-    fetchNotifications();
-  }, []);
+const enrichWithProfName = async (notifList) => {
+  const enriched = await Promise.all(
+    notifList.map(async (notif) => {
+      let nom_prof = 'Inconnu';
+      try {
+        const response = await getUserById(notif.utilisateur_id); // ta fonction API
+        nom_prof = response?.nom && response?.prenom ? `${response.nom} ${response.prenom}` : 'Inconnu';
+      } catch (e) {
+        console.error('Erreur récupération utilisateur', e);
+      }
+      return { ...notif, nom_prof };
+    })
+  );
+  return enriched;
+};
+
+
+useEffect(() => {
+  const fetchNotifications = async () => {
+    try {
+      const storedUser = JSON.parse(localStorage.getItem('user'));
+      if (!storedUser) return;
+
+      setUserRole(storedUser.role);
+
+      let notifs = [];
+
+      if (storedUser.role === 'magasinier') {
+        const produitsFaibles = await getAlerteStock();
+        console.log('Produits faibles', produitsFaibles);
+
+        notifs = produitsFaibles.map((produit) => ({
+  id: produit.id,
+  titre: 'Stock faible',
+  message: `Le produit "${produit.nom}" a une quantité faible (${produit.quantite})`,
+  date: new Date().toISOString(),
+  type: 'stock',
+  produit: { nom: produit.nom, quantite: produit.quantite }, // ajoute ce bloc
+}));
+
+      } else {
+        const demandes = await getNotifications();
+        const enrichies = await enrichWithProfName(demandes);
+        notifs = enrichies.map((notif) => ({
+  id: notif.id,
+  titre: 'Nouvelle demande',
+  message: `${notif.nom_prof} a soumis une demande`,
+  date: notif.created_at,
+  description: notif.description,
+  departement: notif.departement,
+  statut: notif.statut,
+  nom_prof: notif.nom_prof
+}));
+
+      }
+
+      setNotifications(notifs);
+      setRead(notifs.length);
+    } catch (error) {
+      console.error('Erreur lors du chargement des notifications :', error);
+    }
+  };
+
+  fetchNotifications();
+}, []);
+
+
 
   // Fonction pour rediriger vers la page de validation
   const handleNotificationClick = (notifId) => {
@@ -95,26 +152,31 @@ export default function Notification() {
   };
   
 
+
+
+
+
   return (
     <Box sx={{ flexShrink: 0, ml: 0.75 }}>
       <IconButton
-        color="secondary"
-        variant="light"
-        sx={(theme) => ({
-          color: 'text.primary',
-          bgcolor: open ? 'grey.100' : 'transparent',
-          ...theme.applyStyles('dark', { bgcolor: open ? 'background.default' : 'transparent' })
-        })}
-        aria-label="open profile"
-        ref={anchorRef}
-        aria-controls={open ? 'profile-grow' : undefined}
-        aria-haspopup="true"
-        onClick={handleToggle}
-      >
-        <Badge badgeContent={read} color="primary">
-          <BellOutlined />
-        </Badge>
-      </IconButton>
+  color="secondary"
+  variant="light"
+  sx={(theme) => ({
+    color: 'text.primary',
+    bgcolor: open ? 'grey.100' : 'transparent',
+    ...theme.applyStyles('dark', { bgcolor: open ? 'background.default' : 'transparent' })
+  })}
+  aria-label="open profile"
+  ref={anchorRef}
+  aria-controls={open ? 'profile-grow' : undefined}
+  aria-haspopup="true"
+  onClick={handleToggle}
+>
+  <Badge badgeContent={read} color={userRole === 'magasinier' ? 'error' : 'primary'}>
+    <BellOutlined />
+  </Badge>
+</IconButton>
+
       <Popper
         placement={downMD ? 'bottom' : 'bottom-end'}
         open={open}
@@ -158,42 +220,69 @@ export default function Notification() {
                       }
                     }}
                   >
-                    {notifications.length > 0 ? (
-                      notifications.map((notif, index) => (
-                        <ListItem
-                          key={notif.id}
-                          component={ListItemButton}
-                          divider
-                          selected={read > 0}
-                          onClick={() => handleNotificationClick(notif.id)} // Rediriger vers la page de validation
-                          secondaryAction={
-                            <Typography variant="caption" noWrap>
-                              {new Date(notif.date_demande).toLocaleDateString()}
-                            </Typography>
-                          }
-                        >
-                          <ListItemAvatar>
-                            <Avatar sx={{ color: 'info.main', bgcolor: 'info.lighter' }}>
-                              <BellOutlined />
-                            </Avatar>
-                          </ListItemAvatar>
-                          <ListItemText
-                            primary={
-                              <Typography variant="h6">
-                                Nouvelle demande de <Typography component="span" variant="subtitle1">{notif.departement}</Typography>
-                              </Typography>
-                            }
-                            secondary={`Statut : ${notif.statut}`}
-                          />
-                        </ListItem>
-                      ))
-                    ) : (
-                      <ListItem>
-                        <ListItemText
-                          primary={<Typography variant="body1">Pas de nouvelles notifications.</Typography>}
-                        />
-                      </ListItem>
-                    )}
+                    {notifications.map((notif, index) => (
+  <ListItem
+    key={notif.id}
+    component={ListItemButton}
+    divider
+    selected={read > 0}
+    onClick={() => handleNotificationClick(notif.id)}
+    secondaryAction={
+      <Typography variant="caption" noWrap>
+        {notif.date_demande ? new Date(notif.date_demande).toLocaleDateString() : new Date(notif.date).toLocaleDateString()}
+      </Typography>
+    }
+  >
+    <ListItemAvatar>
+      <Avatar
+  sx={{
+    color: notif.type === 'stock' ? 'error.main' : 'info.main',
+    bgcolor: notif.type === 'stock' ? 'error.lighter' : 'info.lighter'
+  }}
+>
+  <BellOutlined />
+</Avatar>
+
+    </ListItemAvatar>
+    <ListItemText
+  primary={
+    notif.type === 'stock' ? (
+      <Typography variant="h6">
+        Stock faible : <Typography component="span" variant="subtitle1">{notif.produit.nom}</Typography>
+      </Typography>
+    ) : userRole === 'professeur' ? (
+      <>
+        <Typography variant="h6">
+          Statut de la demande : <Typography component="span" variant="subtitle1">{notif.description?.substring(0, 50)}</Typography>
+        </Typography>
+        <Typography variant="subtitle2" color="textSecondary" sx={{ mt: 0.5 }}>
+          {notif.statut || 'En attente'}
+        </Typography>
+      </>
+    ) : (
+      <>
+        <Typography variant="h6">
+          Nouvelle demande du département : <Typography component="span" variant="subtitle1">{notif.departement}</Typography>
+        </Typography>
+        <Typography variant="subtitle2" color="textSecondary">
+          Demandeur : {notif.nom_prof}
+        </Typography>
+      </>
+    )
+  }
+  secondary={
+    notif.type === 'stock'
+      ? `Quantité: ${notif.produit.quantite}`
+      : userRole === 'professeur'
+        ? null // Ne pas afficher de description
+        : `Description: ${notif.description?.substring(0, 50)}...`
+  }
+/>
+
+  </ListItem>
+))}
+
+
                   </List>
                 </MainCard>
               </ClickAwayListener>

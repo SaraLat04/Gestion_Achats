@@ -15,7 +15,7 @@ class DemandeController extends Controller
     {
         $user = auth()->user();
 
-        $demandes = Demande::with('produitsTemp') // Assure-toi que la relation 'produitsTemp' est définie
+        $demandes = Demande::with('produitsTemp')
             ->where('utilisateur_id', $user->id)
             ->orderBy('date_demande', 'desc')
             ->get();
@@ -32,7 +32,8 @@ class DemandeController extends Controller
 
     // Enregistrer une nouvelle demande
     public function store(Request $request)
-    {
+{
+    try {
         $user = auth()->user();
         if (!$user) {
             return response()->json(['error' => 'Utilisateur non authentifié'], 401);
@@ -55,11 +56,10 @@ class DemandeController extends Controller
             'justification' => $request->justification,
             'date_demande' => now(),
             'piece_jointe' => $request->hasFile('piece_jointe')
-                ? $request->file('piece_jointe')->store('pieces_jointes')
+                ? $request->file('piece_jointe')->store('pieces_jointes', 'public')
                 : null,
         ]);
 
-        // Enregistrement des produits
         foreach ($request->produits as $produitData) {
             ProduitDemande::create([
                 'demande_id' => $demande->id,
@@ -69,7 +69,12 @@ class DemandeController extends Controller
         }
 
         return response()->json(['message' => 'Demande créée avec succès'], 201);
+    } catch (\Exception $e) {
+        \Log::error("Erreur lors de la création de la demande: " . $e->getMessage());
+        return response()->json(['error' => 'Erreur interne du serveur'], 500);
     }
+}
+
 
     public function update(Request $request, $id)
     {
@@ -116,10 +121,6 @@ class DemandeController extends Controller
     {
         $demande = Demande::findOrFail($id);
 
-        // if ($demande->utilisateur_id !== auth()->id()) {
-        //     return response()->json(['error' => 'Non autorisé'], 403);
-        // }
-
         $demande->produitsTemp()->delete();
         $demande->delete();
 
@@ -136,92 +137,105 @@ class DemandeController extends Controller
         ]);
     }
 
-    public function all()
-    {
-        $user = auth()->user();
+    // Récupérer toutes les demandes selon le rôle de l'utilisateur
+public function all()
+{
+    $user = auth()->user();
+    $role = $user->role;
 
-        if ($user->role === 'doyen') {
-            // Le doyen voit les demandes envoyées au doyen, envoyées au responsable financier, ou traitées
-            $demandes = Demande::with('produitsTemp', 'utilisateur')
-                ->whereIn('statut', ['envoyée au doyen', 'envoyée au responsable financier', 'traitée'])
-                ->orderBy('date_demande', 'desc')
-                ->get();
-        } elseif ($user->role === 'responsable financier') {
-            // Le responsable financier voit les demandes envoyées à lui, ou traitées
-            $demandes = Demande::with('produitsTemp', 'utilisateur')
-                ->whereIn('statut', ['envoyée au responsable financier', 'traitée'])
-                ->orderBy('date_demande', 'desc')
-                ->get();
-        } else {
-            // Les autres (ex: secrétaire générale) voient toutes les demandes
-            $demandes = Demande::with('produitsTemp', 'utilisateur')
-                ->orderBy('date_demande', 'desc')
-                ->get();
-        }
-
-        return response()->json($demandes);
+    if ($role === 'chef_depa') {
+        // Chef de département : uniquement son département
+        $demandes = Demande::with('produitsTemp', 'utilisateur')
+            ->where('departement', $user->departement)
+            ->where(function ($query) use ($role) {
+                $query->whereNot('statut', 'refusé') // toutes sauf refusées
+                      ->orWhere(function ($q) use ($role) {
+                          $q->where('statut', 'refusé')->where('valide_par', $role);
+                      });
+            })
+            ->orderBy('date_demande', 'desc')
+            ->get();
+    } elseif ($role === 'secrétaire général') {
+        $demandes = Demande::with('produitsTemp', 'utilisateur')
+            ->where(function ($query) use ($role) {
+                $query->whereIn('statut', ['envoyée au secre', 'traitée'])
+                      ->orWhere(function ($q) use ($role) {
+                          $q->where('statut', 'refusé')->where('valide_par', $role);
+                      });
+            })
+            ->orderBy('date_demande', 'desc')
+            ->get();
+    } elseif ($role === 'doyen') {
+        $demandes = Demande::with('produitsTemp', 'utilisateur')
+            ->where(function ($query) use ($role) {
+                $query->whereIn('statut', ['envoyée au doyen', 'envoyée au secre', 'traitée'])
+                      ->orWhere(function ($q) use ($role) {
+                          $q->where('statut', 'refusé')->where('valide_par', $role);
+                      });
+            })
+            ->orderBy('date_demande', 'desc')
+            ->get();
+    } else {
+        // Admin ou autre : tout voir
+        $demandes = Demande::with('produitsTemp', 'utilisateur')
+            ->orderBy('date_demande', 'desc')
+            ->get();
     }
 
+    return response()->json($demandes);
+}
 
 
+    public function sendToSecretaireGeneral($id)
+{
+    $user = Auth::user();
+    $role = $user->role;
 
+    \Log::info("Utilisateur connecté: " . $user->nom . " avec le rôle: " . $role);
 
+    $demande = Demande::find($id);
+    if (!$demande) {
+        return response()->json(['error' => 'Demande non trouvée.'], 404);
+    }
+
+    if ($role !== 'doyen') {
+        return response()->json(['error' => 'Accès refusé. Seul le doyen peut effectuer cette action.'], 403);
+    }
+
+    $demande->statut = 'envoyée au secre';
+    $demande->save();
+
+    return response()->json(['success' => 'Demande envoyée au secrétaire général avec succès.']);
+}
+
+    // Quand le chef de département valide -> envoi au doyen
     public function sendToDean($id)
     {
-        // Récupérer l'utilisateur connecté et afficher son rôle pour vérification
         $user = Auth::user();
         $role = $user->role;
 
-        // Afficher ou retourner le rôle de l'utilisateur connecté (pour vérifier)
         \Log::info("Utilisateur connecté: " . $user->nom . " avec le rôle: " . $role);
 
-        // Vérifier que l'utilisateur connecté est la secrétaire générale
-        // if ($role !== UserRole::DEMANDEUR) {
-        //      return response()->json(['error' => 'Accès refusé. Vous n\'êtes pas la secrétaire générale.'], 403);
-        //  }
-
-        // Récupérer la demande par son ID
         $demande = Demande::find($id);
         if (!$demande) {
             return response()->json(['error' => 'Demande non trouvée.'], 404);
         }
 
-        // Mettre à jour l'état de la demande pour indiquer qu'elle a été validée par la secrétaire générale
-        $demande->statut = 'envoyée au doyen';  // ou un autre état selon ton modèle
-        $demande->save();
+        // Le chef de département doit être connecté ici
+        if ($role !== 'chef_depa') {
+            return response()->json(['error' => 'Accès refusé. Vous n\'êtes pas le chef de département.'], 403);
+        }
 
-        // Une fois la validation effectuée par la secrétaire générale, l'envoyer au doyen
-        // Tu pourrais par exemple notifier le doyen ici via un email ou une notification interne.
-        // Si tu veux une logique simple, tu peux juste retourner une confirmation ici.
+        $demande->statut = 'envoyée au doyen';
+        $demande->save();
 
         return response()->json(['success' => 'Demande envoyée au doyen avec succès.']);
     }
 
-    // Quand le doyen valide -> envoi au responsable financier
-    public function sendToResponsable($id)
-    {
-        $user = Auth::user();
-        $role = $user->role;
 
-        \Log::info("Utilisateur connecté: " . $user->nom . " avec le rôle: " . $role);
 
-        $demande = Demande::find($id);
-        if (!$demande) {
-            return response()->json(['error' => 'Demande non trouvée.'], 404);
-        }
 
-        // Le doyen doit être connecté ici
-        if ($role !== 'doyen') {
-            return response()->json(['error' => 'Accès refusé. Vous n\'êtes pas le doyen.'], 403);
-        }
-
-        $demande->statut = 'envoyée au responsable financier';
-        $demande->save();
-
-        return response()->json(['success' => 'Demande envoyée au responsable financier avec succès.']);
-    }
-
-    // Quand le responsable financier valide -> demande traitée
+    // Quand le secrétaire général valide -> demande traitée
     public function finaliserDemande($id)
     {
         $user = Auth::user();
@@ -235,45 +249,59 @@ class DemandeController extends Controller
             return response()->json(['error' => 'Demande non trouvée.'], 404);
         }
 
-        if ($role !== 'responsable financier') {
-            \Log::error("Accès refusé. L'utilisateur avec le rôle $role n'est pas un responsable financier.");
-            return response()->json(['error' => 'Accès refusé. Vous n\'êtes pas le responsable financier.'], 403);
+        // Le secrétaire général doit être connecté ici
+        if ($role !== 'secrétaire général') {
+            \Log::error("Accès refusé. L'utilisateur avec le rôle $role n'est pas secrétaire général.");
+            return response()->json(['error' => 'Accès refusé. Vous n\'êtes pas le secrétaire général.'], 403);
         }
 
         $demande->statut = 'traitée';
+        $demande->valide_par = $role;
         $demande->save();
+
 
         return response()->json(['success' => 'Demande traitée avec succès.']);
     }
+
     public function reject($id)
-    {
-        $demande = Demande::findOrFail($id);
+{
+    $demande = Demande::findOrFail($id);
 
-        $demande->statut = 'refusé'; // Attention ici à l'orthographe
-        $demande->save();
+    $demande->statut = 'refusé';
+    $demande->valide_par = auth()->user()->role; // 👈 on stocke qui a rejeté
+    $demande->save();
 
-        return response()->json(['message' => 'Demande refusée avec succès']);
-    }
+    return response()->json(['message' => 'Demande refusée avec succès']);
+}
+
+
     public function getNotifications()
-    {
-        $user = auth()->user();
-        $role = $user->role;
+{
+    $user = auth()->user();
+    $role = $user->role;
 
-        // En fonction du rôle, on filtre sur le statut attendu
-        if ($role === 'secrétaire général') {
-            $demandes = Demande::where('statut', 'en attente')->orderBy('date_demande', 'desc')->get();
-        } elseif ($role === 'doyen') {
-            $demandes = Demande::where('statut', 'envoyée au doyen')->orderBy('date_demande', 'desc')->get();
-        } elseif ($role === 'responsable financier') {
-            $demandes = Demande::where('statut', 'envoyée au responsable financier')->orderBy('date_demande', 'desc')->get();
-        } elseif ($role === 'professeur' || $role === 'chef_depa' || $role === 'directeur labo') {
-            $demandes = Demande::whereIn('statut', ['traitée', 'refusé'])
-                ->orderBy('date_demande', 'desc')->get();
-        } else {
-            $demandes = collect(); // Vide pour les autres
-        }
-
-        return response()->json($demandes);
+    // En fonction du rôle, on filtre sur le statut attendu
+    if ($role === 'secrétaire général') {
+        $demandes = Demande::where('statut', 'envoyée au secre')
+            ->orderBy('date_demande', 'desc')->get();
+    } elseif ($role === 'doyen') {
+        $demandes = Demande::where('statut', 'envoyée au doyen')
+            ->orderBy('date_demande', 'desc')->get();
+    } elseif ($role === 'chef_depa') {
+        $demandes = Demande::where('statut', 'en attente')
+            ->orderBy('date_demande', 'desc')->get();
+    } elseif ($role === 'professeur') {
+        $demandes = Demande::where('utilisateur_id', $user->id)
+            ->orderBy('date_demande', 'desc')->get();
+    } else {
+        // Rôle non géré : renvoyer une liste vide ou une erreur
+        $demandes = collect(); // collection vide
+        // ou bien :
+        // return response()->json(['error' => 'Rôle non reconnu'], 403);
     }
+
+    return response()->json($demandes);
+}
 
 }
+

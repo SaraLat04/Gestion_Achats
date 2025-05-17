@@ -143,4 +143,20 @@ class ProduitController extends Controller
 
         return response()->json($produits);
     }
+
+    // ProduitController.php
+public function getProduitsStockFaible()
+{
+    try {
+        $produits = Produit::where('quantite', '<=', 5)->get();
+        return response()->json($produits);
+    } catch (\Exception $e) {
+        Log::error('Erreur récupération stock faible : ' . $e->getMessage());
+        return response()->json([
+            'message' => 'Erreur récupération stock faible',
+            'error' => $e->getMessage()
+        ], 500);
+    }
+}
+
 }

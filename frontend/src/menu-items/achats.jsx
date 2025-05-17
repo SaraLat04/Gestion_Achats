@@ -37,7 +37,7 @@ const achats = {
       type: 'item',
       url: '/creer-demande',
       icon: icons.FileAddOutlined,
-      allowedRoles: ['directeur labo', 'professeur', 'chef_depa']
+      allowedRoles: ['professeur']
     },
     {
       id: 'suivre-demandes',
@@ -45,7 +45,7 @@ const achats = {
       type: 'item',
       url: '/suivre-demandes',
       icon: icons.OrderedListOutlined,
-      allowedRoles: ['directeur labo', 'professeur', 'chef_depa']
+      allowedRoles: ['professeur']
     },
     {
       id: 'validation',
@@ -53,7 +53,7 @@ const achats = {
       type: 'item',
       url: '/validation',
       icon: icons.CheckCircleOutlined,
-      allowedRoles: ['secrétaire général', 'responsable financier', 'doyen']
+      allowedRoles: ['chef_depa','secrétaire général', 'doyen']
     },
 
     {

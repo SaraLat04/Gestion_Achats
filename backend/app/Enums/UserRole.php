@@ -10,7 +10,7 @@ enum UserRole: string
   case CHEF_LABO = 'directeur labo';
   case MAGASINIER = 'magasinier';
 
-  case CHEF_DEPARTEMENT = "chef_depa";
+  case CHEF_DEPARTEMENT = 'chef_depa';
   case RESPONSABLE_FINANCIER = 'responsable financier';
 
 

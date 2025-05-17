@@ -12,7 +12,7 @@ import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import { Print as PrintIcon, Description as PdfIcon } from '@mui/icons-material';
-import { getAllDemandes, sendToDean, sendToResponsable, finaliserDemande, rejectDemande } from '../../api/demande';
+import { getAllDemandes, sendToDean,sendToSecretaireGeneral, finaliserDemande, rejectDemande } from '../../api/demande';
 import jsPDF from 'jspdf';
 import logo from '../../components/logo/fstg_logo.png';
 import autoTable from 'jspdf-autotable';
@@ -21,6 +21,110 @@ import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
+import { ThemeProvider, createTheme, CssBaseline, Container, Paper } from '@mui/material';
+
+// Définition des couleurs principales
+const primaryColor = "#B36B39" // Couleur bronze/cuivre du logo
+const secondaryColor = "#2C3E50" // Bleu foncé pour le contraste
+const backgroundColor = "#F5F5F5" // Gris clair pour le fond
+const accentColor = "#E74C3C" // Rouge pour l'accent
+
+// Création du thème
+const theme = createTheme({
+  palette: {
+    primary: {
+      main: primaryColor,
+      contrastText: "#ffffff",
+    },
+    secondary: {
+      main: secondaryColor,
+      contrastText: "#ffffff",
+    },
+    background: {
+      default: backgroundColor,
+    },
+  },
+  typography: {
+    fontFamily: '"Roboto", "Arial", sans-serif',
+    h1: {
+      fontSize: "2.5rem",
+      fontWeight: 700,
+      color: secondaryColor,
+    },
+    h2: {
+      fontSize: "2rem",
+      fontWeight: 600,
+      color: primaryColor,
+    },
+    body1: {
+      fontSize: "1rem",
+      color: "#333",
+    },
+  },
+  components: {
+    MuiButton: {
+      styleOverrides: {
+        root: {
+          borderRadius: 30,
+          textTransform: "none",
+          padding: "10px 20px",
+          transition: "all 0.3s ease",
+          fontWeight: 600,
+          boxShadow: "none",
+          "&:hover": {
+            transform: "translateY(-3px)",
+            boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
+          },
+        },
+        containedPrimary: {
+          background: `linear-gradient(45deg, ${primaryColor} 30%, ${primaryColor}CC 90%)`,
+          "&:hover": {
+            background: `linear-gradient(45deg, ${primaryColor}CC 30%, ${primaryColor} 90%)`,
+          },
+        },
+        containedSecondary: {
+          background: `linear-gradient(45deg, ${secondaryColor} 30%, ${secondaryColor}CC 90%)`,
+          "&:hover": {
+            background: `linear-gradient(45deg, ${secondaryColor}CC 30%, ${secondaryColor} 90%)`,
+          },
+        },
+        outlined: {
+          borderWidth: 2,
+          "&:hover": {
+            borderWidth: 2,
+          },
+        },
+      },
+    },
+    MuiPaper: {
+      styleOverrides: {
+        root: {
+          borderRadius: 8,
+        },
+      },
+    },
+    MuiDialog: {
+      styleOverrides: {
+        paper: {
+          borderRadius: 12,
+          padding: '16px',
+        },
+      },
+    },
+    MuiTableCell: {
+      styleOverrides: {
+        head: {
+          backgroundColor: backgroundColor,
+          fontWeight: 600,
+          color: secondaryColor,
+        },
+        root: {
+          borderBottom: `1px solid ${backgroundColor}`,
+        },
+      },
+    },
+  },
+});
 
 function descendingComparator(a, b, orderBy) {
   if (b[orderBy] < a[orderBy]) return -1;
@@ -118,14 +222,7 @@ const [confirmAction, setConfirmAction] = useState(null); // { action: 'valider'
     const doc = new jsPDF();
   
     // 2. Charger la police arabe (à placer dans public/fonts/)
-    try {
-      const response = await fetch('/fonts/amiri-regular.ttf');
-      const fontData = await response.arrayBuffer();
-      doc.addFileToVFS('amiri.ttf', fontData);
-      doc.addFont('amiri.ttf', 'Amiri', 'normal');
-    } catch (error) {
-      console.error("Erreur de chargement de la police arabe:", error);
-    }
+  
   
     // 3. Partie française (gauche)
     doc.setFont('helvetica', 'normal');
@@ -245,11 +342,11 @@ const [confirmAction, setConfirmAction] = useState(null); // { action: 'valider'
   
       let response;
   
-      if (userRole === 'secrétaire général') {
+      if (userRole === 'chef_depa') {
         response = await sendToDean(id);
       } else if (userRole === 'doyen') {
-        response = await sendToResponsable(id);
-      } else if (userRole === 'responsable financier') {
+        response = await sendToSecretaireGeneral(id);
+      } else if (userRole === 'secrétaire général') {
         response = await finaliserDemande(id); // Valider la demande sans la supprimer
       } else {
         console.error("Rôle non supporté");
@@ -312,7 +409,7 @@ const [confirmAction, setConfirmAction] = useState(null); // { action: 'valider'
       return <Typography color="error" sx={{ fontWeight: 'bold' }}>Rejetée</Typography>;
     }
   
-    if (userRole === 'secrétaire général') {
+    if (userRole === 'chef_depa') {
       if (statut === 'en attente') {
         return (
           <Stack direction="row" spacing={1}>
@@ -340,10 +437,10 @@ const [confirmAction, setConfirmAction] = useState(null); // { action: 'valider'
           </Stack>
         );
       } else {
-        return <Typography sx={{ color: 'green', fontWeight: 'bold' }}>Envoyée au responsable financier</Typography>;
+        return <Typography sx={{ color: 'green', fontWeight: 'bold' }}>Envoyée au secrétaire général</Typography>;
       }
-    } else if (userRole === 'responsable financier') {
-      if (statut === 'envoyée au responsable financier') {
+    } else if (userRole === 'secrétaire général') {
+      if (statut === 'envoyée au secre') {
         return (
           <Stack direction="row" spacing={1}>
             <Button variant="contained" color="success" onClick={() => openConfirmDialog('valider', id)}>
@@ -406,100 +503,199 @@ const [confirmAction, setConfirmAction] = useState(null); // { action: 'valider'
   };
   
   return (
-    <Box>
-      <TableContainer sx={{ width: '100%', overflowX: 'auto' }}>
-        <Table aria-labelledby="tableTitle">
-          <RequestTableHead order={order} orderBy={orderBy} />
-          <TableBody>
-            {stableSort(rows, getComparator(order, orderBy)).map((row, index) => {
-              const labelId = `enhanced-table-checkbox-${index}`;
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+        <Box sx={{ mb: 4 }}>
+          <Typography variant="h1" gutterBottom>
+            Validation des Demandes
+          </Typography>
+          <Typography variant="body1" color="text.secondary">
+            Gérez et validez les demandes d'achat
+          </Typography>
+        </Box>
 
-              return (
-                <TableRow hover key={row.id} tabIndex={-1}>
-                  <TableCell component="th" id={labelId} scope="row">
-                    <Link color="secondary">{row.id}</Link>
-                  </TableCell>
-                  <TableCell>{row.utilisateur?.nom || 'Inconnu'} {row.utilisateur?.prenom || ''}</TableCell>
-                  <TableCell>{row.departement}</TableCell>
-                  <TableCell>{row.description}</TableCell>
-                  <TableCell>
-                    <Stack direction="row" spacing={1} sx={{ mb: 1 }}>
-                      <Button variant="outlined" size="small" onClick={() => viewPDF(row)} startIcon={<PdfIcon />}>
-                        Voir la Demande
-                      </Button>
-                      <Button
-  variant="contained"
-  size="small"
-  onClick={() => handlePrint(row)}  // avant c'était window.print()
-  startIcon={<PrintIcon />}
->
-  Imprimer
-</Button>
+        <Paper elevation={3} sx={{ borderRadius: 4, overflow: 'hidden' }}>
+          <TableContainer>
+            <Table aria-labelledby="tableTitle">
+              <RequestTableHead order={order} orderBy={orderBy} />
+              <TableBody>
+                {stableSort(rows, getComparator(order, orderBy)).map((row, index) => {
+                  const labelId = `enhanced-table-checkbox-${index}`;
 
-                    </Stack>
-                    {renderActions(row)}
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-      </TableContainer>
+                  return (
+                    <TableRow
+                      hover
+                      key={row.id}
+                      tabIndex={-1}
+                      sx={{
+                        '&:last-child td, &:last-child th': { border: 0 },
+                        '&:hover': {
+                          backgroundColor: `${backgroundColor}80`,
+                          transition: 'background-color 0.3s ease'
+                        }
+                      }}
+                    >
+                      <TableCell component="th" id={labelId} scope="row">
+                        <Link
+                          color="primary"
+                          sx={{
+                            textDecoration: 'none',
+                            '&:hover': {
+                              textDecoration: 'underline'
+                            }
+                          }}
+                        >
+                          {row.id}
+                        </Link>
+                      </TableCell>
+                      <TableCell>{row.utilisateur?.nom || 'Inconnu'} {row.utilisateur?.prenom || ''}</TableCell>
+                      <TableCell>{row.departement}</TableCell>
+                      <TableCell>{row.description}</TableCell>
+                      <TableCell>
+                        <Stack direction="row" spacing={1} sx={{ mb: 1 }}>
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            onClick={() => viewPDF(row)}
+                            startIcon={<PdfIcon />}
+                            sx={{
+                              borderColor: primaryColor,
+                              color: primaryColor,
+                              '&:hover': {
+                                borderColor: primaryColor,
+                                backgroundColor: `${primaryColor}10`
+                              }
+                            }}
+                          >
+                            Voir la Demande
+                          </Button>
+                          <Button
+                            variant="contained"
+                            size="small"
+                            onClick={() => handlePrint(row)}
+                            startIcon={<PrintIcon />}
+                            sx={{
+                              background: `linear-gradient(45deg, ${primaryColor} 30%, ${primaryColor}CC 90%)`,
+                              '&:hover': {
+                                background: `linear-gradient(45deg, ${primaryColor}CC 30%, ${primaryColor} 90%)`,
+                              }
+                            }}
+                          >
+                            Imprimer
+                          </Button>
+                        </Stack>
+                        {renderActions(row)}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Paper>
 
-      <Dialog open={openPdf} onClose={handleClosePdf} fullWidth maxWidth="md">
-        <DialogTitle>Prévisualisation du PDF</DialogTitle>
-        <DialogContent>
-          {pdfUrl && (
-            <iframe
-              title="PDF Viewer"
-              src={pdfUrl}
-              width="100%"
-              height="500px"
-              style={{ border: 'none' }}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
-      <Snackbar
-  open={snackbar.open}
-  autoHideDuration={3000}
-  onClose={() => setSnackbar({ ...snackbar, open: false })}
-  anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
->
-  <Alert onClose={() => setSnackbar({ ...snackbar, open: false })} severity={snackbar.severity} sx={{ width: '100%' }}>
-    {snackbar.message}
-  </Alert>
-</Snackbar>
-<Dialog open={confirmDialogOpen} onClose={() => setConfirmDialogOpen(false)}>
-  <DialogTitle>Confirmation</DialogTitle>
-  <DialogContent>
-    <Typography>
-      {confirmAction?.action === 'valider'
-        ? "Êtes-vous sûr de vouloir valider cette demande ?"
-        : "Êtes-vous sûr de vouloir rejeter cette demande ?"}
-    </Typography>
-    <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
-      <Button
-        variant="contained"
-        color="primary"
-        onClick={() => {
-          if (confirmAction?.action === 'valider') {
-            handleValider(confirmAction.id);
-          } else if (confirmAction?.action === 'rejeter') {
-            handleRejeter(confirmAction.id);
-          }
-          setConfirmDialogOpen(false);
-        }}
-      >
-        Confirmer
-      </Button>
-      <Button variant="outlined" onClick={() => setConfirmDialogOpen(false)}>
-        Annuler
-      </Button>
-    </Stack>
-  </DialogContent>
-</Dialog>
+        <Dialog
+          open={openPdf}
+          onClose={handleClosePdf}
+          fullWidth
+          maxWidth="md"
+          PaperProps={{
+            sx: {
+              borderRadius: 4,
+              padding: 2
+            }
+          }}
+        >
+          <DialogTitle sx={{ color: secondaryColor, fontWeight: 600 }}>
+            Prévisualisation du PDF
+          </DialogTitle>
+          <DialogContent>
+            {pdfUrl && (
+              <iframe
+                title="PDF Viewer"
+                src={pdfUrl}
+                width="100%"
+                height="500px"
+                style={{ border: 'none' }}
+              />
+            )}
+          </DialogContent>
+        </Dialog>
 
-    </Box>
+        <Snackbar
+          open={snackbar.open}
+          autoHideDuration={3000}
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        >
+          <Alert
+            onClose={() => setSnackbar({ ...snackbar, open: false })}
+            severity={snackbar.severity}
+            sx={{ width: '100%' }}
+          >
+            {snackbar.message}
+          </Alert>
+        </Snackbar>
+
+        <Dialog
+          open={confirmDialogOpen}
+          onClose={() => setConfirmDialogOpen(false)}
+          PaperProps={{
+            sx: {
+              borderRadius: 4,
+              padding: 2
+            }
+          }}
+        >
+          <DialogTitle sx={{ color: secondaryColor, fontWeight: 600 }}>
+            Confirmation
+          </DialogTitle>
+          <DialogContent>
+            <Typography>
+              {confirmAction?.action === 'valider'
+                ? "Êtes-vous sûr de vouloir valider cette demande ?"
+                : "Êtes-vous sûr de vouloir rejeter cette demande ?"}
+            </Typography>
+            <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={() => {
+                  if (confirmAction?.action === 'valider') {
+                    handleValider(confirmAction.id);
+                  } else if (confirmAction?.action === 'rejeter') {
+                    handleRejeter(confirmAction.id);
+                  }
+                  setConfirmDialogOpen(false);
+                }}
+                sx={{
+                  background: `linear-gradient(45deg, ${primaryColor} 30%, ${primaryColor}CC 90%)`,
+                  '&:hover': {
+                    background: `linear-gradient(45deg, ${primaryColor}CC 30%, ${primaryColor} 90%)`,
+                  }
+                }}
+              >
+                Confirmer
+              </Button>
+              <Button
+                variant="outlined"
+                onClick={() => setConfirmDialogOpen(false)}
+                sx={{
+                  borderColor: secondaryColor,
+                  color: secondaryColor,
+                  '&:hover': {
+                    borderColor: secondaryColor,
+                    backgroundColor: `${secondaryColor}10`
+                  }
+                }}
+              >
+                Annuler
+              </Button>
+            </Stack>
+          </DialogContent>
+        </Dialog>
+      </Container>
+    </ThemeProvider>
   );
 }

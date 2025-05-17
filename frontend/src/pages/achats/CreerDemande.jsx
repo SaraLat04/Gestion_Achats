@@ -15,11 +15,129 @@ import {
   Card,
   CardContent,
   Box,
-  Stack
+  Stack,
+  ThemeProvider,
+  createTheme,
+  CssBaseline,
+  Container,
+  Grid
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
+
+// Définition des couleurs principales
+const primaryColor = "#B36B39" // Couleur bronze/cuivre du logo
+const secondaryColor = "#2C3E50" // Bleu foncé pour le contraste
+const backgroundColor = "#F5F5F5" // Gris clair pour le fond
+const accentColor = "#E74C3C" // Rouge pour l'accent
+
+// Création du thème
+const theme = createTheme({
+  palette: {
+    primary: {
+      main: primaryColor,
+      contrastText: "#ffffff",
+    },
+    secondary: {
+      main: secondaryColor,
+      contrastText: "#ffffff",
+    },
+    background: {
+      default: backgroundColor,
+    },
+  },
+  typography: {
+    fontFamily: '"Roboto", "Arial", sans-serif',
+    h1: {
+      fontSize: "2.5rem",
+      fontWeight: 700,
+      color: secondaryColor,
+    },
+    h2: {
+      fontSize: "2rem",
+      fontWeight: 600,
+      color: primaryColor,
+    },
+    h5: {
+      fontSize: "1.25rem",
+      fontWeight: 600,
+      color: secondaryColor,
+    },
+    body1: {
+      fontSize: "1rem",
+      color: "#333",
+    },
+  },
+  components: {
+    MuiButton: {
+      styleOverrides: {
+        root: {
+          borderRadius: 30,
+          textTransform: "none",
+          padding: "10px 20px",
+          transition: "all 0.3s ease",
+          fontWeight: 600,
+          boxShadow: "none",
+          "&:hover": {
+            transform: "translateY(-3px)",
+            boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
+          },
+        },
+        containedPrimary: {
+          background: `linear-gradient(45deg, ${primaryColor} 30%, ${primaryColor}CC 90%)`,
+          "&:hover": {
+            background: `linear-gradient(45deg, ${primaryColor}CC 30%, ${primaryColor} 90%)`,
+          },
+        },
+        containedSecondary: {
+          background: `linear-gradient(45deg, ${secondaryColor} 30%, ${secondaryColor}CC 90%)`,
+          "&:hover": {
+            background: `linear-gradient(45deg, ${secondaryColor}CC 30%, ${secondaryColor} 90%)`,
+          },
+        },
+        outlined: {
+          borderWidth: 2,
+          "&:hover": {
+            borderWidth: 2,
+          },
+        },
+      },
+    },
+    MuiCard: {
+      styleOverrides: {
+        root: {
+          borderRadius: 8,
+          boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
+          transition: "all 0.3s ease",
+          "&:hover": {
+            transform: "translateY(-3px)",
+            boxShadow: "0 6px 12px rgba(0,0,0,0.15)",
+          },
+        },
+      },
+    },
+    MuiPaper: {
+      styleOverrides: {
+        root: {
+          borderRadius: 8,
+        },
+      },
+    },
+    MuiTextField: {
+      styleOverrides: {
+        root: {
+          '& .MuiOutlinedInput-root': {
+            borderRadius: 8,
+            '&:hover fieldset': {
+              borderColor: primaryColor,
+            },
+          },
+        },
+      },
+    },
+  },
+});
 
 const initialState = {
   description: "",
@@ -111,7 +229,7 @@ export default function AddDemande() {
       } else {
         console.error("Erreur de configuration :", error.message);
       }
-      alert("Une erreur est survenue lors de l’envoi.");
+      alert("Une erreur est survenue lors de l'envoi.");
     }
   };
 
@@ -122,146 +240,234 @@ export default function AddDemande() {
   };
 
   return (
-    <Box display="flex" justifyContent="center" mt={5}>
-      <Card elevation={3} sx={{ width: '80%', padding: 3, borderRadius: 2 }}>
-        <CardContent>
-          <Typography variant="h5" align="center" color="primary" fontWeight="bold">
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+        <Box sx={{ mb: 4 }}>
+          <Typography variant="h1" gutterBottom>
             Créer une Demande
           </Typography>
-          <TextField
-            label="Nom du demandeur"
-            value={user ? `${user.nom} ${user.prenom}` : ''}
-            fullWidth
-            margin="normal"
-            disabled
-            variant="outlined"
-          />
-          <TextField
-            label="Email du demandeur"
-            value={user ? user.email : ''}
-            fullWidth
-            margin="normal"
-            disabled
-            variant="outlined"
-          />
-          <TextField
-            label="Département"
-            value={user ? user.departement : ''}
-            fullWidth
-            margin="normal"
-            disabled
-            variant="outlined"
-          />
-          <TextField
-            label="Description de la demande"
-            value={state.description}
-            onChange={(e) => dispatch({ type: "SET_FIELD", field: "description", value: e.target.value })}
-            fullWidth
-            margin="normal"
-            multiline
-            rows={3}
-            variant="outlined"
-          />
-          <TextField
-            label="Justification"
-            value={state.justification}
-            onChange={(e) => dispatch({ type: "SET_FIELD", field: "justification", value: e.target.value })}
-            fullWidth
-            margin="normal"
-            multiline
-            rows={3}
-            variant="outlined"
-          />
-          
-          <Box sx={{ marginTop: 2, display: "flex", alignItems: "center" }}>
-            <IconButton 
-              color="primary" 
-              component="label" 
-              sx={{ border: "1px solid #ddd", padding: 1, borderRadius: 1, fontSize: 40 }}
-            >
-              <CloudUploadIcon sx={{ fontSize: 40 }} />
-              <input
-                type="file"
-                accept=".jpg,.jpeg,.png,.pdf"
-                hidden
-                onChange={handleFileChange}
-              />
-            </IconButton>
-            <Typography variant="body1" color="primary" ml={2}>
-              Télécharger un fichier
-            </Typography>
-            {state.fichier && (
-              <Typography variant="body2" color="textSecondary" ml={2}>
-                Fichier choisi: {state.fichier.name}
-              </Typography>
-            )}
-          </Box>
+          <Typography variant="body1" color="text.secondary">
+            Remplissez le formulaire ci-dessous pour créer une nouvelle demande
+          </Typography>
+        </Box>
 
-          <Stack direction="row" spacing={2} alignItems="center" sx={{ mt: 3 }}>
-            <Box flex={1}>
-              <TextField
-                label="Nom du produit"
-                value={state.produitNom}
-                onChange={(e) => dispatch({ type: "SET_FIELD", field: "produitNom", value: e.target.value })}
-                fullWidth
-                variant="outlined"
-              />
+        <Card elevation={3} sx={{ borderRadius: 4, overflow: 'hidden' }}>
+          <CardContent sx={{ p: 4 }}>
+            <Box sx={{ mb: 4 }}>
+              <Typography variant="h2" gutterBottom sx={{ color: secondaryColor }}>
+                Informations du Demandeur
+              </Typography>
+              <Grid container spacing={3}>
+                <Grid item xs={12} md={4}>
+                  <TextField
+                    label="Nom du demandeur"
+                    value={user ? `${user.nom} ${user.prenom}` : ''}
+                    fullWidth
+                    disabled
+                    variant="outlined"
+                  />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <TextField
+                    label="Email du demandeur"
+                    value={user ? user.email : ''}
+                    fullWidth
+                    disabled
+                    variant="outlined"
+                  />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <TextField
+                    label="Département"
+                    value={user ? user.departement : ''}
+                    fullWidth
+                    disabled
+                    variant="outlined"
+                  />
+                </Grid>
+              </Grid>
             </Box>
-            <Box flex={1}>
-              <TextField
-                label="Quantité"
-                type="number"
-                value={state.produitQte}
-                onChange={(e) => dispatch({ type: "SET_FIELD", field: "produitQte", value: e.target.value })}
-                fullWidth
-                variant="outlined"
-              />
+
+            <Box sx={{ mb: 4 }}>
+              <Typography variant="h2" gutterBottom sx={{ color: secondaryColor }}>
+                Détails de la Demande
+              </Typography>
+              <Grid container spacing={3}>
+                <Grid item xs={12}>
+                  <TextField
+                    label="Description de la demande"
+                    value={state.description}
+                    onChange={(e) => dispatch({ type: "SET_FIELD", field: "description", value: e.target.value })}
+                    fullWidth
+                    multiline
+                    rows={3}
+                    variant="outlined"
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    label="Justification"
+                    value={state.justification}
+                    onChange={(e) => dispatch({ type: "SET_FIELD", field: "justification", value: e.target.value })}
+                    fullWidth
+                    multiline
+                    rows={3}
+                    variant="outlined"
+                  />
+                </Grid>
+              </Grid>
             </Box>
-            <IconButton color="primary" onClick={() => dispatch({ type: "ADD_PRODUIT" })} size="large">
-              <AddIcon fontSize="inherit" />
-            </IconButton>
-          </Stack>
-          {state.produits.length > 0 && (
-            <TableContainer component={Paper} sx={{ mt: 2, borderRadius: 2 }}>
-              <Table>
-                <TableHead sx={{ backgroundColor: "#f5f5f5" }}>
-                  <TableRow>
-                    <TableCell><b>Nom du produit</b></TableCell>
-                    <TableCell><b>Quantité</b></TableCell>
-                    <TableCell><b>Actions</b></TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {state.produits.map((produit, index) => (
-                    <TableRow key={index}>
-                      <TableCell>{produit.nom}</TableCell>
-                      <TableCell>{produit.quantite}</TableCell>
-                      <TableCell>
-                        <IconButton color="secondary" onClick={() => dispatch({ type: "REMOVE_PRODUIT", index })}>
-                          <DeleteIcon />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          )}
-          <Stack direction="row" spacing={2} justifyContent="center" sx={{ mt: 3 }}>
-            <Button variant="contained" color="primary" onClick={envoyerDemande} sx={{ borderRadius: 2, padding: "10px 20px" }}>
-              Envoyer
-            </Button>
-            <Button
-              variant="contained"
-              color="secondary"
-              onClick={() => dispatch({ type: "RESET" })}
-              sx={{ borderRadius: 2, padding: "10px 20px" }}
-            >
-              Annuler
-            </Button>
-          </Stack>
-        </CardContent>
-      </Card>
-    </Box>
+
+            <Box sx={{ mb: 4 }}>
+              <Typography variant="h2" gutterBottom sx={{ color: secondaryColor }}>
+                Pièce Jointe
+              </Typography>
+              <Box sx={{ 
+                display: "flex", 
+                alignItems: "center",
+                p: 2,
+                border: `2px dashed ${primaryColor}`,
+                borderRadius: 2,
+                bgcolor: 'background.default'
+              }}>
+                <IconButton 
+                  color="primary" 
+                  component="label" 
+                  sx={{ 
+                    border: `2px solid ${primaryColor}`,
+                    padding: 2,
+                    borderRadius: 2,
+                    '&:hover': {
+                      bgcolor: `${primaryColor}10`
+                    }
+                  }}
+                >
+                  <CloudUploadIcon sx={{ fontSize: 40 }} />
+                  <input
+                    type="file"
+                    accept=".jpg,.jpeg,.png,.pdf"
+                    hidden
+                    onChange={handleFileChange}
+                  />
+                </IconButton>
+                <Box sx={{ ml: 2 }}>
+                  <Typography variant="body1" color="primary">
+                    Télécharger un fichier
+                  </Typography>
+                  {state.fichier && (
+                    <Typography variant="body2" color="textSecondary">
+                      Fichier choisi: {state.fichier.name}
+                    </Typography>
+                  )}
+                </Box>
+              </Box>
+            </Box>
+
+            <Box sx={{ mb: 4 }}>
+              <Typography variant="h2" gutterBottom sx={{ color: secondaryColor }}>
+                Produits Demandés
+              </Typography>
+              <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 3 }}>
+                <Box flex={1}>
+                  <TextField
+                    label="Nom du produit"
+                    value={state.produitNom}
+                    onChange={(e) => dispatch({ type: "SET_FIELD", field: "produitNom", value: e.target.value })}
+                    fullWidth
+                    variant="outlined"
+                  />
+                </Box>
+                <Box flex={1}>
+                  <TextField
+                    label="Quantité"
+                    type="number"
+                    value={state.produitQte}
+                    onChange={(e) => dispatch({ type: "SET_FIELD", field: "produitQte", value: e.target.value })}
+                    fullWidth
+                    variant="outlined"
+                  />
+                </Box>
+                <IconButton 
+                  color="primary" 
+                  onClick={() => dispatch({ type: "ADD_PRODUIT" })}
+                  sx={{
+                    bgcolor: `${primaryColor}10`,
+                    '&:hover': {
+                      bgcolor: `${primaryColor}20`
+                    }
+                  }}
+                >
+                  <AddIcon />
+                </IconButton>
+              </Stack>
+
+              {state.produits.length > 0 && (
+                <TableContainer component={Paper} sx={{ borderRadius: 2, overflow: 'hidden' }}>
+                  <Table>
+                    <TableHead>
+                      <TableRow sx={{ bgcolor: 'background.default' }}>
+                        <TableCell><strong>Nom du produit</strong></TableCell>
+                        <TableCell><strong>Quantité</strong></TableCell>
+                        <TableCell><strong>Actions</strong></TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {state.produits.map((produit, index) => (
+                        <TableRow 
+                          key={index}
+                          hover
+                          sx={{ 
+                            '&:hover': { 
+                              bgcolor: 'action.hover',
+                              transition: 'background-color 0.3s ease'
+                            }
+                          }}
+                        >
+                          <TableCell>{produit.nom}</TableCell>
+                          <TableCell>{produit.quantite}</TableCell>
+                          <TableCell>
+                            <IconButton 
+                              color="error"
+                              onClick={() => dispatch({ type: "REMOVE_PRODUIT", index })}
+                              sx={{
+                                '&:hover': {
+                                  bgcolor: `${accentColor}10`
+                                }
+                              }}
+                            >
+                              <DeleteIcon />
+                            </IconButton>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
+            </Box>
+
+            <Stack direction="row" spacing={2} justifyContent="center">
+              <Button 
+                variant="contained" 
+                color="primary" 
+                onClick={envoyerDemande}
+                sx={{ minWidth: 200 }}
+              >
+                Envoyer
+              </Button>
+              <Button
+                variant="contained"
+                color="secondary"
+                onClick={() => dispatch({ type: "RESET" })}
+                sx={{ minWidth: 200 }}
+              >
+                Annuler
+              </Button>
+            </Stack>
+          </CardContent>
+        </Card>
+      </Container>
+    </ThemeProvider>
   );
 }

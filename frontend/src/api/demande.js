@@ -6,6 +6,7 @@ export const getDemandes = async () => {
   return response.data;
 };
 
+// Récupérer toutes les demandes selon le rôle de l'utilisateur
 export const getAllDemandes = async () => {
   const response = await API.get('/allDemandes');
   return response.data;
@@ -58,59 +59,55 @@ export const modifierDemande = async (id, data) => {
   return response.data;
 };
 
-
+// Envoyer la demande au doyen
 export const sendToDean = async (requestId) => {
-  // Vérifie si requestId est défini et non vide
   if (!requestId) {
     console.error("requestId n'est pas défini ou est invalide");
     throw new Error("requestId est manquant");
   }
 
-  try {
-    const response = await API.post(`/demande/${requestId}/envoyer-au-doyen`);
-    return response.data;
-  } catch (error) {
-    console.error("Erreur lors de l'envoi au doyen : ", error);
-    throw new Error(error.response?.data?.message || 'Erreur lors de l\'envoi au doyen');
-  }
-};
-
-export const rejectDemande = async (id) => {
-  const response = await API.post(`/demande/${id}/rejeter`);
+  const response = await API.post(`/demande/${requestId}/envoyer-au-doyen`);
   return response.data;
 };
 
-export const sendToResponsable = async (requestId) => {
-  if (!requestId) throw new Error("requestId est manquant");
-
-  try {
-    const response = await API.post(`/demande/${requestId}/envoyer-au-responsable`);
-    return response.data;
-  } catch (error) {
-    console.error("Erreur lors de l'envoi au responsable financier : ", error);
-    throw new Error(error.response?.data?.message || 'Erreur lors de l\'envoi au responsable financier');
+// Envoyer la demande au secrétaire général
+export const sendToSecretaireGeneral = async (requestId) => {
+  if (!requestId) {
+    console.error("requestId n'est pas défini ou est invalide");
+    throw new Error("requestId est manquant");
   }
+
+  const response = await API.post(`/demande/${requestId}/envoyer-au-secretaire-general`);
+  return response.data;
 };
 
+// Finaliser la demande (traitée par le secrétaire général)
 export const finaliserDemande = async (requestId) => {
-  if (!requestId) throw new Error("requestId est manquant");
-
-  try {
-    const response = await API.post(`/demande/${requestId}/finaliser`);
-    return response.data;
-  } catch (error) {
-    console.error("Erreur lors de la finalisation de la demande : ", error);
-    throw new Error(error.response?.data?.message || 'Erreur lors de la finalisation de la demande');
+  if (!requestId) {
+    console.error("requestId n'est pas défini ou est invalide");
+    throw new Error("requestId est manquant");
   }
+
+  const response = await API.post(`/demande/${requestId}/finaliser`);
+  return response.data;
 };
 
+// Refuser une demande
+export const rejectDemande = async (requestId) => {
+  if (!requestId) {
+    console.error("requestId n'est pas défini ou est invalide");
+    throw new Error("requestId est manquant");
+  }
 
+  const response = await API.post(`/demande/${requestId}/rejeter`);
+  return response.data;
+};
 // Supprimer une demande
 export const supprimerDemande = async (id) => {
-  const response = await API.delete(`/demande/${id}`);
+  const response = await API.delete('/demande/${id}');
   return response.data;
 };
-
+// Récupérer les notifications selon le rôle de l'utilisateur
 export const getNotifications = async () => {
   const response = await API.get('/notifications');
   return response.data;
