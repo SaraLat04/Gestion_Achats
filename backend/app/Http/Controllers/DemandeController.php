@@ -303,5 +303,7 @@ public function all()
     return response()->json($demandes);
 }
 
+
+
 }
 

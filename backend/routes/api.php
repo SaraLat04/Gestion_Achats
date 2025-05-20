@@ -9,6 +9,7 @@ use App\Enums\UserRole;
 use App\Http\Controllers\CategorieController;
 use App\Http\Controllers\FournisseurController;
 use App\Http\Controllers\MouvementStockController;
+use App\Http\Controllers\ProduitDemandeController;
 
 /*
 |--------------------------------------------------------------------------
@@ -21,6 +22,8 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::get('/roles', [AuthController::class, 'getRoles']);
 Route::get('/departements', [AuthController::class, 'getDepartements']);
 Route::get('/utilisateurs/{id}', [AuthController::class, 'getUserById']);
+Route::get('/produits/by-demande/{demandeId}', [ProduitDemandeController::class, 'getProduitsByDemande']);
+
 // Route pour récupérer l'utilisateur connecté
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return response()->json([
@@ -104,4 +107,22 @@ Route::post('/demande/{id}/envoyer-au-secretaire-general', [DemandeController::c
     Route::post('/mouvements-stock', [MouvementStockController::class, 'store']);
     Route::get('/produits/{produit}/stock', [MouvementStockController::class, 'getStockProduit']);
 
+});
+
+// Route::middleware('auth:sanctum')->get('/profile', function (Request $request) {
+//     $user = $request->user();
+//     // Ajoute la photo complète si besoin
+//     $user->photo = $user->photo ? asset('storage/' . $user->photo) : null;
+//     return response()->json($user);
+// });
+
+Route::middleware('auth:sanctum')->get('/profile', function (Request $request) {
+    $user = $request->user();
+
+    if ($user->photo && !preg_match('/^http/', $user->photo)) {
+        // On ajoute l'URL complète avec asset()
+        $user->photo = asset('storage/' . $user->photo);
+    }
+
+    return response()->json($user);
 });

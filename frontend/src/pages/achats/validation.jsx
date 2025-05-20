@@ -4,6 +4,8 @@ import Link from '@mui/material/Link';
 import Stack from '@mui/material/Stack';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import TableCell from '@mui/material/TableCell';
 import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
@@ -13,9 +15,11 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import { Print as PrintIcon, Description as PdfIcon } from '@mui/icons-material';
 import { getAllDemandes, sendToDean,sendToSecretaireGeneral, finaliserDemande, rejectDemande } from '../../api/demande';
-import jsPDF from 'jspdf';
+
+import { getProduitsByDemande } from '../../api/produitDemande' ; // adapte le chemin selon ton projet
+
 import logo from '../../components/logo/fstg_logo.png';
-import autoTable from 'jspdf-autotable';
+
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
@@ -187,7 +191,9 @@ export default function RequestTable() {
   const [treatedRequests, setTreatedRequests] = useState([]);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
-const [confirmAction, setConfirmAction] = useState(null); // { action: 'valider' | 'rejeter', id: number }
+const [confirmAction, setConfirmAction] = useState(null);
+const [produits, setProduits] = useState([]);
+ // { action: 'valider' | 'rejeter', id: number }
 
   const order = 'asc';
   const orderBy = 'id';
@@ -203,6 +209,77 @@ const [confirmAction, setConfirmAction] = useState(null); // { action: 'valider'
       console.error('Erreur lors de la récupération des demandes :', error);
     }
   };
+
+  
+
+  
+
+const handleViewProduitsPDF = async (demandeId, nomU, nomDep) => {
+  try {
+    // Récupérer les produits via API Laravel
+    const produitsData = await getProduitsByDemande(demandeId); 
+    setProduits(produitsData);
+    console.log("Produits récupérés :", produitsData);
+    console.log("ID de la demande :", demandeId);
+    const doc = new jsPDF();
+
+    
+
+    doc.addImage(logo, 'PNG', 10, 10, 40, 20);
+    doc.addImage(logo, 'PNG', 160, 10, 40, 20);
+
+    // --- Titre ---
+    doc.setFontSize(16);
+    doc.text(`Produits de la Demande #${demandeId}`, 105, 40, { align: 'center' });
+
+    // --- Informations sur la demande ---
+    doc.setFontSize(12);
+    const infos = [
+      `ID de la demande : ${demandeId}`,
+      `Nom du demandeur : ${nomU || 'Non spécifié'}`,
+      `Nom du departement : ${nomDep || 'Non spécifié'}`,
+      // `Date de création : ${new Date(demande.created_at).toLocaleDateString()}`,
+    ];
+    infos.forEach((line, i) => {
+      doc.text(line, 14, 50 + i * 8);
+    });
+
+    // --- Table des produits ---
+    const productRows = produitsData.map((prod, i) => [
+      i + 1,
+      prod.nom,
+      prod.quantite,
+      prod.description || '',
+    ]);
+
+    autoTable(doc, {
+      head: [['#', 'Nom du produit', 'Quantité', 'Description']],
+      body: productRows,
+      startY: 80,
+      theme: 'grid',
+      headStyles: { fillColor: [22, 160, 133] },
+      styles: { fontSize: 10 },
+      columnStyles: {
+        0: { cellWidth: 10 },  // index
+        1: { cellWidth: 60 },  // nom
+        2: { cellWidth: 25 },  // quantité
+        3: { cellWidth: 80 },  // description
+      },
+    });
+
+    // --- Générer l'URL du PDF et ouvrir la fenêtre ---
+    const pdfBlob = doc.output('blob');
+    const url = URL.createObjectURL(pdfBlob);
+
+    setPdfUrl(url);
+    setOpenPdf(true);
+
+  } catch (error) {
+    console.error("Erreur lors de la génération du PDF :", error);
+    setSnackbar({ open: true, message: "Erreur lors de la génération du PDF", severity: "error" });
+  }
+};
+
 
   useEffect(() => {
     fetchData();
@@ -466,42 +543,62 @@ const [confirmAction, setConfirmAction] = useState(null); // { action: 'valider'
   };
   
   
-  const handlePrint = (row) => {
+  const handlePrint = async (demandeId, nomU, nomDep) => {
+  try {
+    const produitsData = await getProduitsByDemande(demandeId);
+
     const doc = new jsPDF();
-  
-    const img = new Image();
-    img.src = logo;
-    img.onload = () => {
-      doc.addImage(img, 'PNG', 10, 10, 30, 30);
-      doc.setFontSize(18);
-      doc.text('Fiche de demande', 105, 25, null, null, 'center');
-  
-      doc.setFontSize(12);
-      doc.text(`Numéro de demande : ${row.id}`, 14, 50);
-      doc.text(`Nom du demandeur : ${row.utilisateur?.nom || 'Inconnu'}`, 14, 60);
-      doc.text(`Département : ${row.departement}`, 14, 70);
-      doc.text('Description :', 14, 80);
-      doc.text(`${row.description}`, 14, 90, { maxWidth: 180 });
-  
-      const pdfBlob = doc.output('blob');
-      const pdfUrl = URL.createObjectURL(pdfBlob);
-  
-      const printWindow = window.open('', '_blank');
-      if (printWindow) {
-        printWindow.document.write(`
-          <html>
-            <head>
-              <title>Imprimer la demande</title>
-            </head>
-            <body style="margin:0">
-              <iframe src="${pdfUrl}" style="width:100%;height:100vh;border:none;" onload="this.contentWindow.print();"></iframe>
-            </body>
-          </html>
-        `);
-      }
-    };
-  };
-  
+
+    // Logos en haut à gauche et droite
+    doc.addImage(logo, 'PNG', 10, 10, 40, 20);
+    doc.addImage(logo, 'PNG', 160, 10, 40, 20);
+
+    // Titre centré
+    doc.setFontSize(16);
+    doc.text(`Produits de la Demande #${demandeId}`, 105, 40, { align: 'center' });
+
+    // Informations sur la demande
+    doc.setFontSize(12);
+    const infos = [
+      `ID de la demande : ${demandeId}`,
+      `Nom du demandeur : ${nomU || 'Non spécifié'}`,
+      `Nom du département : ${nomDep || 'Non spécifié'}`,
+    ];
+    infos.forEach((line, i) => {
+      doc.text(line, 14, 50 + i * 8);
+    });
+
+    // Tableau des produits
+    const productRows = produitsData.map((prod, i) => [
+      i + 1,
+      prod.nom,
+      prod.quantite,
+      prod.description || '',
+    ]);
+
+    autoTable(doc, {
+      head: [['#', 'Nom du produit', 'Quantité', 'Description']],
+      body: productRows,
+      startY: 80,
+      theme: 'grid',
+      headStyles: { fillColor: [22, 160, 133] },
+      styles: { fontSize: 10 },
+      columnStyles: {
+        0: { cellWidth: 10 },
+        1: { cellWidth: 60 },
+        2: { cellWidth: 25 },
+        3: { cellWidth: 80 },
+      },
+    });
+
+    // --- Télécharger le PDF directement ---
+    doc.save(`Demande_${demandeId}.pdf`);
+
+  } catch (error) {
+    console.error("Erreur lors du téléchargement du PDF :", error);
+    setSnackbar({ open: true, message: "Erreur lors du téléchargement du PDF", severity: "error" });
+  }
+};
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
@@ -557,7 +654,7 @@ const [confirmAction, setConfirmAction] = useState(null); // { action: 'valider'
                           <Button
                             variant="outlined"
                             size="small"
-                            onClick={() => viewPDF(row)}
+                            onClick={() => handleViewProduitsPDF(row.id, row.utilisateur?.nom, row.departement)}
                             startIcon={<PdfIcon />}
                             sx={{
                               borderColor: primaryColor,
@@ -573,7 +670,7 @@ const [confirmAction, setConfirmAction] = useState(null); // { action: 'valider'
                           <Button
                             variant="contained"
                             size="small"
-                            onClick={() => handlePrint(row)}
+                            onClick={() => handlePrint(row.id, row.utilisateur?.nom, row.departement)}
                             startIcon={<PrintIcon />}
                             sx={{
                               background: `linear-gradient(45deg, ${primaryColor} 30%, ${primaryColor}CC 90%)`,

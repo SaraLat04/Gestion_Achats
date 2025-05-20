@@ -13,7 +13,7 @@ export function generateMenuItems(user) {
   };
 
   return {
-    items: [dashboard, pages, filteredAchats]
+    items: [dashboard, filteredAchats]
   };
 }
 

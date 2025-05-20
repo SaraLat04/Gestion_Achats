@@ -1,9 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
-import auth from '../../api/auth'; // en haut du fichier
-
-
+import auth from '../../api/auth';
 import {
   Grid,
   FormControl,
@@ -19,30 +17,21 @@ import { useNavigate } from 'react-router-dom';
 
 export default function AuthRegister() {
   const [roles, setRoles] = useState([]);
+  const [departements, setDepartements] = useState([]);
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
-  
+
   useEffect(() => {
     axios.get('http://127.0.0.1:8000/api/roles')
-      .then((response) => {
-        setRoles(response.data);
-      })
-      .catch((error) => {
-        console.error('Erreur lors du chargement des rôles:', error);
-      });
+      .then((response) => setRoles(response.data))
+      .catch((error) => console.error('Erreur lors du chargement des rôles:', error));
   }, []);
 
-  const [departements, setDepartements] = useState([]);
-
-useEffect(() => {
-  axios.get('http://127.0.0.1:8000/api/departements')
-    .then((response) => {
-      setDepartements(response.data);
-    })
-    .catch((error) => {
-      console.error('Erreur lors du chargement des départements:', error);
-    });
-}, []);
+  useEffect(() => {
+    axios.get('http://127.0.0.1:8000/api/departements')
+      .then((response) => setDepartements(response.data))
+      .catch((error) => console.error('Erreur lors du chargement des départements:', error));
+  }, []);
 
   const validationSchema = Yup.object({
     firstname: Yup.string().required('First name is required'),
@@ -64,38 +53,33 @@ useEffect(() => {
 
   const formik = useFormik({
     initialValues: {
-  firstname: '',
-  lastname: '',
-  email: '',
-  company: '',
-  password: '',
-  confirmPassword: '',
-  role: '',
-  photo: null, // 👈 Ajoute ceci
-},
-
+      firstname: '',
+      lastname: '',
+      email: '',
+      company: '',
+      password: '',
+      confirmPassword: '',
+      role: '',
+      photo: null
+    },
     validationSchema,
     onSubmit: async (values) => {
       try {
         const formData = new FormData();
-formData.append('nom', values.firstname);
-formData.append('prenom', values.lastname);
-formData.append('email', values.email);
-formData.append('password', values.password);
-formData.append('role', values.role);
-formData.append('departement', values.company);
-if (values.photo) {
-  formData.append('photo', values.photo);
-}
+        formData.append('nom', values.firstname);
+        formData.append('prenom', values.lastname);
+        formData.append('email', values.email);
+        formData.append('password', values.password);
+        formData.append('role', values.role);
+        formData.append('departement', values.company);
+        if (values.photo) {
+          formData.append('photo', values.photo);
+        }
 
-
-
-await auth.register(formData);
-
-
+        await auth.register(formData);
 
         alert('Utilisateur créé avec succès');
-        navigate('/login'); // Redirection vers la page login
+        navigate('/login');
       } catch (error) {
         alert('Erreur lors de la création de l\'utilisateur');
         console.error(error);
@@ -222,46 +206,46 @@ await auth.register(formData);
 
         <Grid item xs={12}>
           <FormControl fullWidth error={formik.touched.company && Boolean(formik.errors.company)}>
-  <InputLabel id="departement-label">Département*</InputLabel>
-  <Select
-    labelId="departement-label"
-    id="company"
-    name="company"
-    value={formik.values.company}
-    onChange={formik.handleChange}
-    onBlur={formik.handleBlur}
-    input={<OutlinedInput label="Département" />}
-  >
-    {departements.map((dept) => (
-  <MenuItem key={dept} value={dept}>
-    {dept}
-  </MenuItem>
-))}
-
-
-    ))}
-  </Select>
-  {formik.touched.company && formik.errors.company && (
-    <FormHelperText>{formik.errors.company}</FormHelperText>
-  )}
-</FormControl>
-
-
+            <InputLabel id="departement-label">Département*</InputLabel>
+            <Select
+              labelId="departement-label"
+              id="company"
+              name="company"
+              value={formik.values.company}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
+              input={<OutlinedInput label="Département" />}
+            >
+              {departements.length > 0 ? (
+                departements.map((dept, index) => (
+                  <MenuItem key={index} value={dept}>
+                    {dept}
+                  </MenuItem>
+                ))
+              ) : (
+                <MenuItem disabled>Aucun département disponible</MenuItem>
+              )}
+            </Select>
+            {formik.touched.company && formik.errors.company && (
+              <FormHelperText>{formik.errors.company}</FormHelperText>
+            )}
+          </FormControl>
         </Grid>
-            <Grid item xs={12}>
-  <FormControl fullWidth>
-    <input
-      id="photo"
-      name="photo"
-      type="file"
-      accept="image/*"
-      onChange={(event) => {
-        formik.setFieldValue("photo", event.currentTarget.files[0]);
-      }}
-    />
-    {formik.errors.photo && <FormHelperText error>{formik.errors.photo}</FormHelperText>}
-  </FormControl>
-</Grid>
+
+        <Grid item xs={12}>
+          <FormControl fullWidth>
+            <input
+              id="photo"
+              name="photo"
+              type="file"
+              accept="image/*"
+              onChange={(event) => {
+                formik.setFieldValue("photo", event.currentTarget.files[0]);
+              }}
+            />
+            {formik.errors.photo && <FormHelperText error>{formik.errors.photo}</FormHelperText>}
+          </FormControl>
+        </Grid>
 
         <Grid item xs={12}>
           <Button fullWidth size="large" variant="contained" color="primary" type="submit">
