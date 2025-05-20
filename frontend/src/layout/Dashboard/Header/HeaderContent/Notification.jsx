@@ -111,17 +111,38 @@ useEffect(() => {
 
       } else {
         const demandes = await getNotifications();
-        const enrichies = await enrichWithProfName(demandes);
-        notifs = enrichies.map((notif) => ({
-  id: notif.id,
-  titre: 'Nouvelle demande',
-  message: `${notif.nom_prof} a soumis une demande`,
-  date: notif.created_at,
-  description: notif.description,
-  departement: notif.departement,
-  statut: notif.statut,
-  nom_prof: notif.nom_prof
-}));
+const enrichies = await enrichWithProfName(demandes);
+console.log('Utilisateur connecté :', storedUser);
+console.log('Demandes enrichies :', enrichies);
+
+// Filtrage uniquement si c'est un chef de département
+if (storedUser.role === 'chef de département' || storedUser.role === 'chef_depa') {
+
+  // Filtrer par département
+  const filtered = enrichies.filter((notif) => notif.departement === storedUser.departement);
+  notifs = filtered.map((notif) => ({
+    id: notif.id,
+    titre: 'Nouvelle demande',
+    message: `${notif.nom_prof} a soumis une demande`,
+    date: notif.created_at,
+    description: notif.description,
+    departement: notif.departement,
+    statut: notif.statut,
+    nom_prof: notif.nom_prof
+  }));
+} else {
+  notifs = enrichies.map((notif) => ({
+    id: notif.id,
+    titre: 'Nouvelle demande',
+    message: `${notif.nom_prof} a soumis une demande`,
+    date: notif.created_at,
+    description: notif.description,
+    departement: notif.departement,
+    statut: notif.statut,
+    nom_prof: notif.nom_prof
+  }));
+}
+
 
       }
 
@@ -138,18 +159,24 @@ useEffect(() => {
 
 
   // Fonction pour rediriger vers la page de validation
-  const handleNotificationClick = (notifId) => {
-    const storedUser = JSON.parse(localStorage.getItem('user'));
-    const userRole = storedUser?.role;
-  
-    const rolesAvecValidation = ['secretaire général', 'doyen', 'responsable financier'];
-  
-    if (rolesAvecValidation.includes(userRole)) {
-      navigate('/validation/');
-    } else {
-      navigate('/suivre-demandes/');
-    }
-  };
+  // Fonction pour rediriger selon le rôle et le type de notification
+const handleNotificationClick = (notifId) => {
+  const storedUser = JSON.parse(localStorage.getItem('user'));
+  const userRole = storedUser?.role;
+
+  // Redirection spécifique selon le rôle
+  if (userRole === 'magasinier') {
+    navigate('/alertes-stock/');
+  } else if (userRole === 'professeur') {
+    navigate('/suivre-demandes/');
+  } else {
+    // Par défaut pour les autres rôles (chef_depa, doyen, etc.)
+    navigate('/validation/');
+  }
+
+  // Optionnel : marquer comme lu (ex: setRead(prev => prev - 1) ou setRead(0))
+};
+
   
 
 
