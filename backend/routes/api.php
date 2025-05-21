@@ -126,3 +126,6 @@ Route::middleware('auth:sanctum')->get('/profile', function (Request $request) {
 
     return response()->json($user);
 });
+
+// Route pour modifier le profil utilisateur
+Route::middleware('auth:sanctum')->put('/profile', [AuthController::class, 'updateProfile']);

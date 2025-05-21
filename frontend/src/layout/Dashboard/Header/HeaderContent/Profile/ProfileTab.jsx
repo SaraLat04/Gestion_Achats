@@ -21,6 +21,7 @@ import {
 import { styled } from '@mui/material/styles';
 import EyeOutlined from '@ant-design/icons/EyeOutlined';
 import EditOutlined from '@ant-design/icons/EditOutlined';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 
 // Couleurs de la charte graphique UCA
 const colors = {
@@ -85,19 +86,24 @@ const ProfileCard = styled(Paper)(({ theme }) => ({
 const ProfileTab = () => {
   const [openViewModal, setOpenViewModal] = useState(false);
   const [openEditModal, setOpenEditModal] = useState(false);
+  const [openSuccessModal, setOpenSuccessModal] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(null);
+  const [error, setError] = useState('');
   const [profileData, setProfileData] = useState({
-    name: '',
+    nom: '',
     email: '',
     prenom: '',
     photo: null,
   });
 
   const [formData, setFormData] = useState({
-    name: '',
+    nom: '',
     email: '',
     prenom: '',
   });
+
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState('');
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -114,17 +120,19 @@ const ProfileTab = () => {
         const user = response.data;
 
         setProfileData({
-          name: user.nom || '',
+          nom: user.nom || '',
           prenom: user.prenom || '',
           email: user.email || '',
           photo: user.photo || null,
         });
 
         setFormData({
-          name: user.nom || '',
+          nom: user.nom || '',
           email: user.email || '',
           prenom: user.prenom || '',
         });
+
+        setPreviewUrl(user.photo || '');
       } catch (error) {
         console.error('Erreur lors de la récupération du profil :', error);
       }
@@ -133,37 +141,94 @@ const ProfileTab = () => {
     fetchProfile();
   }, []);
 
+  const handleFileChange = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      setSelectedFile(file);
+      setPreviewUrl(URL.createObjectURL(file));
+    }
+  };
+
   const handleSaveProfile = async () => {
     try {
       const token = localStorage.getItem('token');
-      if (!token) return;
+      if (!token) {
+        setError('Session expirée. Veuillez vous reconnecter.');
+        return;
+      }
 
-      await axios.put(
-        'http://localhost:8000/api/profile',
-        {
-          nom: formData.name,
-          prenom: formData.prenom,
-          email: formData.email,
+      // Vérification que les champs ne sont pas vides
+      if (!formData.nom || !formData.prenom || !formData.email) {
+        setError('Tous les champs sont obligatoires');
+        return;
+      }
+
+      // Préparation des données
+      const data = {
+        nom: formData.nom.trim(),
+        prenom: formData.prenom.trim(),
+        email: formData.email.trim()
+      };
+
+      console.log('Données à envoyer:', data);
+
+      const response = await fetch('http://localhost:8000/api/profile', {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
         },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+        body: JSON.stringify(data)
+      });
+
+      const responseData = await response.json();
+
+      if (!response.ok) {
+        console.error('Erreur API:', responseData);
+        if (responseData.errors) {
+          // Gestion des erreurs de validation Laravel
+          const errorMessages = Object.values(responseData.errors).flat();
+          setError(errorMessages.join(', '));
+        } else {
+          setError(responseData.message || 'Erreur lors de la mise à jour');
         }
-      );
+        return;
+      }
 
-      setProfileData((prev) => ({
-        ...prev,
-        name: formData.name,
-        email: formData.email,
-        prenom: formData.prenom,
-      }));
+      // Mise à jour réussie
+      if (responseData.user) {
+        const updatedUser = responseData.user;
+        
+        // Mise à jour des états
+        setProfileData({
+          nom: updatedUser.nom || '',
+          prenom: updatedUser.prenom || '',
+          email: updatedUser.email || '',
+          photo: updatedUser.photo || null,
+        });
 
-      setOpenEditModal(false);
+        setFormData({
+          nom: updatedUser.nom || '',
+          email: updatedUser.email || '',
+          prenom: updatedUser.prenom || '',
+        });
+
+        if (updatedUser.photo) {
+          setPreviewUrl(updatedUser.photo);
+        }
+
+        // Fermer le modal d'édition et ouvrir le modal de succès
+        setOpenEditModal(false);
+        setOpenSuccessModal(true);
+        setError('');
+      }
     } catch (error) {
-      console.error('Erreur lors de la mise à jour du profil :', error);
+      console.error('Erreur:', error);
+      setError('Erreur lors de la mise à jour du profil. Veuillez réessayer.');
     }
   };
+  
 
   const handleListItemClick = (event, index, action) => {
     setSelectedIndex(index);
@@ -177,8 +242,8 @@ const ProfileTab = () => {
   return (
     <>
       <List component="nav" sx={{ p: 0, '& .MuiListItemIcon-root': { minWidth: 32 } }}>
-        <ListItemButton 
-          selected={selectedIndex === 0} 
+        <ListItemButton
+          selected={selectedIndex === 0}
           onClick={(event) => handleListItemClick(event, 0, 'view')}
           sx={{
             '&.Mui-selected': {
@@ -195,10 +260,10 @@ const ProfileTab = () => {
           <ListItemIcon>
             <EyeOutlined style={{ color: colors.primary }} />
           </ListItemIcon>
-          <ListItemText 
-            primary="Voir Profil" 
+          <ListItemText
+            primary="Voir Profil"
             primaryTypographyProps={{
-              sx: { 
+              sx: {
                 color: colors.secondary,
                 fontWeight: selectedIndex === 0 ? 600 : 400,
               }
@@ -206,8 +271,8 @@ const ProfileTab = () => {
           />
         </ListItemButton>
 
-        <ListItemButton 
-          selected={selectedIndex === 1} 
+        <ListItemButton
+          selected={selectedIndex === 1}
           onClick={(event) => handleListItemClick(event, 1, 'edit')}
           sx={{
             '&.Mui-selected': {
@@ -224,10 +289,10 @@ const ProfileTab = () => {
           <ListItemIcon>
             <EditOutlined style={{ color: colors.primary }} />
           </ListItemIcon>
-          <ListItemText 
-            primary="Modifier Profil" 
+          <ListItemText
+            primary="Modifier Profil"
             primaryTypographyProps={{
-              sx: { 
+              sx: {
                 color: colors.secondary,
                 fontWeight: selectedIndex === 1 ? 600 : 400,
               }
@@ -244,85 +309,39 @@ const ProfileTab = () => {
         fullWidth
         PaperProps={{
           sx: {
-            borderRadius: 4,
+            borderRadius: 3,
             padding: 3,
-            boxShadow: `0 12px 40px ${colors.shadow}`,
-            background: `linear-gradient(145deg, white, ${colors.background})`,
-          },
+            backgroundColor: colors.background,
+            boxShadow: `0 4px 15px ${colors.shadow}`,
+          }
         }}
       >
-        <DialogTitle
-          sx={{
-            fontWeight: 700,
-            fontSize: '1.8rem',
-            color: colors.secondary,
-            textAlign: 'center',
-            mb: 1,
-            fontFamily: '"Roboto", "Arial", sans-serif',
-            borderBottom: `2px solid ${colors.primaryLight}`,
-            pb: 2,
-          }}
-        >
+        <DialogTitle sx={{ textAlign: 'center', color: colors.primary, fontWeight: 'bold' }}>
           Profil Utilisateur
         </DialogTitle>
-        <DialogContent>
-          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, py: 2 }}>
-            <StyledAvatar
-              src={profileData.photo || undefined}
-              alt={`${profileData.name} ${profileData.prenom}`}
-              sx={{ bgcolor: colors.primary, color: 'white' }}
-            >
-              {!profileData.photo && profileData.name.charAt(0).toUpperCase()}
-            </StyledAvatar>
-
-            <Grid container spacing={2}>
-              <Grid item xs={12}>
-                <ProfileCard>
-                  <Typography variant="subtitle2" color={colors.secondary} gutterBottom>
-                    Nom
-                  </Typography>
-                  <Typography variant="h6" color={colors.primary}>{profileData.name || '-'}</Typography>
-                </ProfileCard>
-              </Grid>
-
-              <Grid item xs={12}>
-                <ProfileCard>
-                  <Typography variant="subtitle2" color={colors.secondary} gutterBottom>
-                    Prénom
-                  </Typography>
-                  <Typography variant="h6" color={colors.primary}>{profileData.prenom || '-'}</Typography>
-                </ProfileCard>
-              </Grid>
-
-              <Grid item xs={12}>
-                <ProfileCard>
-                  <Typography variant="subtitle2" color={colors.secondary} gutterBottom>
-                    Email
-                  </Typography>
-                  <Typography variant="h6" color={colors.primary}>{profileData.email || '-'}</Typography>
-                </ProfileCard>
-              </Grid>
-            </Grid>
+        <DialogContent dividers>
+          <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+            <StyledAvatar src={previewUrl || undefined} alt="Photo de profil" />
           </Box>
+          <Typography variant="h6" align="center" sx={{ mb: 1, color: colors.secondaryDark }}>
+            {profileData.nom} {profileData.prenom}
+          </Typography>
+          <Typography variant="body1" align="center" sx={{ mb: 2, color: colors.secondaryDark }}>
+            {profileData.email}
+          </Typography>
+          <Divider />
+          {/* Autres infos ici si nécessaire */}
         </DialogContent>
-        <DialogActions sx={{ justifyContent: 'center', pb: 2 }}>
+        <DialogActions sx={{ justifyContent: 'center' }}>
           <Button
             onClick={() => setOpenViewModal(false)}
-            variant="outlined"
+            variant="contained"
             sx={{
-              px: 4,
-              py: 1.2,
-              borderRadius: '30px',
-              textTransform: 'none',
-              borderWidth: 2,
-              borderColor: colors.secondary,
-              color: colors.secondary,
+              backgroundColor: colors.primary,
+              color: '#fff',
+              fontWeight: 'bold',
               '&:hover': {
-                borderColor: colors.primary,
-                backgroundColor: colors.background,
-                color: colors.primary,
-                transform: 'translateY(-3px)',
-                boxShadow: `0 4px 8px ${colors.shadow}`,
+                backgroundColor: colors.primaryDark,
               },
             }}
           >
@@ -339,86 +358,71 @@ const ProfileTab = () => {
         fullWidth
         PaperProps={{
           sx: {
-            borderRadius: 4,
+            borderRadius: 3,
             padding: 3,
-            boxShadow: `0 12px 40px ${colors.shadow}`,
-            background: `linear-gradient(145deg, white, ${colors.background})`,
-          },
+            backgroundColor: colors.background,
+            boxShadow: `0 4px 15px ${colors.shadow}`,
+          }
         }}
       >
-        <DialogTitle
-          sx={{
-            fontWeight: 700,
-            fontSize: '1.8rem',
-            color: colors.secondary,
-            textAlign: 'center',
-            mb: 1,
-            fontFamily: '"Roboto", "Arial", sans-serif',
-            borderBottom: `2px solid ${colors.primaryLight}`,
-            pb: 2,
-          }}
-        >
+        <DialogTitle sx={{ color: colors.primary, fontWeight: 'bold' }}>
           Modifier Profil
         </DialogTitle>
-        <DialogContent>
-          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, py: 2 }}>
-            <StyledAvatar
-              src={profileData.photo || undefined}
-              alt={`${formData.name} ${formData.prenom}`}
-              sx={{ bgcolor: colors.primary, color: 'white' }}
-            >
-              {!profileData.photo && formData.name.charAt(0).toUpperCase()}
-            </StyledAvatar>
-
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
-                <StyledTextField
-                  fullWidth
-                  label="Nom"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <StyledTextField
-                  fullWidth
-                  label="Prénom"
-                  value={formData.prenom}
-                  onChange={(e) => setFormData({ ...formData, prenom: e.target.value })}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <StyledTextField
-                  fullWidth
-                  label="Email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                />
-              </Grid>
+        <DialogContent dividers>
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={4} sx={{ display: 'flex', justifyContent: 'center' }}>
+              <Box sx={{ textAlign: 'center' }}>
+                <StyledAvatar src={previewUrl || undefined} alt="Photo de profil" />
+                <Button
+                  variant="outlined"
+                  component="label"
+                  sx={{ mt: 1, color: colors.primary, borderColor: colors.primary }}
+                >
+                  Choisir une photo
+                  <input
+                    type="file"
+                    hidden
+                    accept="image/*"
+                    onChange={handleFileChange}
+                  />
+                </Button>
+              </Box>
             </Grid>
-          </Box>
+            <Grid item xs={12} sm={8}>
+              <StyledTextField
+                label="Nom"
+                fullWidth
+                value={formData.nom}
+                onChange={(e) => setFormData({ ...formData, nom: e.target.value })}
+                margin="normal"
+              />
+              <StyledTextField
+                label="Prénom"
+                fullWidth
+                value={formData.prenom}
+                onChange={(e) => setFormData({ ...formData, prenom: e.target.value })}
+                margin="normal"
+              />
+              <StyledTextField
+                label="Email"
+                fullWidth
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                margin="normal"
+              />
+              {error && (
+                <Typography color="error" sx={{ mt: 1 }}>
+                  {error}
+                </Typography>
+              )}
+            </Grid>
+          </Grid>
         </DialogContent>
-        <DialogActions sx={{ justifyContent: 'center', pb: 2, gap: 2 }}>
+        <DialogActions sx={{ justifyContent: 'flex-end' }}>
           <Button
             onClick={() => setOpenEditModal(false)}
-            variant="outlined"
-            sx={{
-              px: 4,
-              py: 1.2,
-              borderRadius: '30px',
-              textTransform: 'none',
-              borderWidth: 2,
-              borderColor: colors.secondary,
-              color: colors.secondary,
-              '&:hover': {
-                borderColor: colors.primary,
-                backgroundColor: colors.background,
-                color: colors.primary,
-                transform: 'translateY(-3px)',
-                boxShadow: `0 4px 8px ${colors.shadow}`,
-              },
-            }}
+            sx={{ color: colors.secondaryDark }}
           >
             Annuler
           </Button>
@@ -426,22 +430,53 @@ const ProfileTab = () => {
             onClick={handleSaveProfile}
             variant="contained"
             sx={{
-              px: 4,
-              py: 1.2,
-              borderRadius: '30px',
-              textTransform: 'none',
-              background: `linear-gradient(45deg, ${colors.primary} 30%, ${colors.primaryLight} 90%)`,
-              boxShadow: `0 4px 8px ${colors.shadow}`,
+              backgroundColor: colors.primary,
+              color: '#fff',
+              fontWeight: 'bold',
               '&:hover': {
-                transform: 'translateY(-3px)',
-                background: `linear-gradient(45deg, ${colors.primaryLight} 30%, ${colors.primary} 90%)`,
-                boxShadow: `0 6px 12px ${colors.shadow}`,
+                backgroundColor: colors.primaryDark,
               },
             }}
           >
             Enregistrer
           </Button>
         </DialogActions>
+      </Dialog>
+
+      {/* Modal succès */}
+      <Dialog
+        open={openSuccessModal}
+        onClose={() => setOpenSuccessModal(false)}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            padding: 4,
+            textAlign: 'center',
+            backgroundColor: colors.background,
+            boxShadow: `0 4px 15px ${colors.shadow}`,
+          }
+        }}
+      >
+        <CheckCircleOutlineIcon sx={{ fontSize: 60, color: colors.primary, mb: 2 }} />
+        <Typography variant="h6" sx={{ mb: 1, color: colors.secondaryDark }}>
+          Profil mis à jour avec succès !
+        </Typography>
+        <Button
+          onClick={() => setOpenSuccessModal(false)}
+          variant="contained"
+          sx={{
+            backgroundColor: colors.primary,
+            color: '#fff',
+            fontWeight: 'bold',
+            '&:hover': {
+              backgroundColor: colors.primaryDark,
+            },
+          }}
+        >
+          OK
+        </Button>
       </Dialog>
     </>
   );

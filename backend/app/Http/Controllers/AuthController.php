@@ -8,6 +8,9 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
 use App\Enums\UserRole;
 use App\Enums\Departement;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
+
 class AuthController extends Controller
 {
 
@@ -100,6 +103,30 @@ public function getUserById($id)
     }
 
     return response()->json($user);
+}
+
+public function updateProfile(Request $request)
+{
+    $user = auth()->user();
+
+    $request->validate([
+        'nom' => 'required|string',
+        'prenom' => 'required|string',
+        'email' => 'required|email|unique:users,email,' . $user->id,
+        'photo' => 'nullable|image|max:2048',
+    ]);
+
+    if ($request->hasFile('photo')) {
+        $path = $request->file('photo')->store('photos', 'public');
+        $user->photo = '/storage/' . $path;
+    }
+
+    $user->nom = $request->nom;
+    $user->prenom = $request->prenom;
+    $user->email = $request->email;
+    $user->save();
+
+    return response()->json(['user' => $user]);
 }
 
 }
