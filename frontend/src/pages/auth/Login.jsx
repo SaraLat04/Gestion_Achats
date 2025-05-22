@@ -112,6 +112,8 @@ const theme = createTheme({
   },
 });
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -126,7 +128,7 @@ export default function Login() {
     setError('');
 
     try {
-      const response = await axios.post('/api/login', {
+      const response = await axios.post(`${API_URL}/login`, {
         email,
         password,
       });
@@ -135,11 +137,32 @@ export default function Login() {
         localStorage.setItem('token', response.data.token || '');
         localStorage.setItem('user', JSON.stringify(response.data.user));
         setUser(response.data.user);
-        navigate('/dashboard/default');
+        
+        // Redirection basée sur le rôle
+        const role = response.data.user.role;
+        if (role === 'magasinier') {
+          navigate('/magasinier/dashboard');
+        } else if (role === 'professeur') {
+          navigate('/professeur/dashboard');
+        } else if (role === 'chef_depa') {
+          navigate('/chef-departement/dashboard');
+        } else if (role === 'doyen') {
+          navigate('/doyen/dashboard');
+        } else if (role === 'secrétaire général') {
+          navigate('/secretaire-general/dashboard');
+        } else {
+          navigate('/dashboard/default');
+        }
       }
     } catch (err) {
-      setError('Email ou mot de passe incorrect');
       console.error('Login failed:', err.response?.data || err.message);
+      if (err.response?.status === 422) {
+        setError('Email ou mot de passe incorrect');
+      } else if (err.response?.status === 404) {
+        setError('Utilisateur non trouvé');
+      } else {
+        setError('Une erreur est survenue lors de la connexion');
+      }
     } finally {
       setLoading(false);
     }

@@ -17,7 +17,8 @@ const dashboard = {
       id: 'dashboard',
       title: 'Dashboard',
       type: 'item',
-      url: '/dashboard/default',
+      // L'URL sera déterminée par le RoleBasedRedirect dans les routes
+      url: '/',
       icon: icons.DashboardOutlined,
       breadcrumbs: false
     }

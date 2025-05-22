@@ -10,6 +10,9 @@ use App\Http\Controllers\CategorieController;
 use App\Http\Controllers\FournisseurController;
 use App\Http\Controllers\MouvementStockController;
 use App\Http\Controllers\ProduitDemandeController;
+use App\Http\Controllers\MagasinierDashboardController;
+use App\Http\Controllers\ProfesseurDashboardController;
+use App\Http\Controllers\ChefDepartementDashboardController;
 
 /*
 |--------------------------------------------------------------------------
@@ -106,6 +109,23 @@ Route::post('/demande/{id}/envoyer-au-secretaire-general', [DemandeController::c
     Route::get('/mouvements-stock', [MouvementStockController::class, 'index']);
     Route::post('/mouvements-stock', [MouvementStockController::class, 'store']);
     Route::get('/produits/{produit}/stock', [MouvementStockController::class, 'getStockProduit']);
+
+    // Routes pour le dashboard du magasinier
+    Route::prefix('magasinier')->group(function () {
+        Route::get('/dashboard', [MagasinierDashboardController::class, 'getDashboardStats']);
+        Route::get('/historique-stock', [MagasinierDashboardController::class, 'getHistoriqueStock']);
+        Route::get('/alertes-stock', [MagasinierDashboardController::class, 'getAlertesStock']);
+    });
+
+    // Routes pour le dashboard professeur
+    Route::middleware(['auth:sanctum', 'role:professeur'])->group(function () {
+        Route::get('/professeur/dashboard/stats', [ProfesseurDashboardController::class, 'getDashboardStats']);
+    });
+
+    // Routes pour le chef de département
+    Route::middleware(['auth:sanctum', 'role:chef_depa'])->group(function () {
+        Route::get('/chef-departement/dashboard/stats', [ChefDepartementDashboardController::class, 'getDashboardStats']);
+    });
 
 });
 

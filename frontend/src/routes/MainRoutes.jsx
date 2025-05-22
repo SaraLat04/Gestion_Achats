@@ -1,13 +1,17 @@
 import { lazy } from 'react';
 import { Navigate } from 'react-router-dom';
+import { useContext } from 'react';
 
 // project imports
 import Loadable from 'components/Loadable';
 import DashboardLayout from 'layout/Dashboard';
 import PrivateRouteByRole from './PrivateRouteByRole.jsx';
+import { AuthContext } from 'contexts/AuthContext';
 
 // pages
 const DashboardDefault = Loadable(lazy(() => import('pages/dashboard/default')));
+const MagasinierDashboard = Loadable(lazy(() => import('pages/MagasinierDashboard')));
+const ChefDepartementDashboard = Loadable(lazy(() => import('pages/ChefDepartementDashboard')));
 const Color = Loadable(lazy(() => import('pages/component-overview/color')));
 const Typography = Loadable(lazy(() => import('pages/component-overview/typography')));
 const Shadow = Loadable(lazy(() => import('pages/component-overview/shadows')));
@@ -24,8 +28,38 @@ const Categories = Loadable(lazy(() => import('pages/achats/Categories')));
 
 const SamplePage = Loadable(lazy(() => import('pages/extra-pages/sample-page')));
 const Unauthorized = Loadable(lazy(() => import('../pages/Errors/Unauthorized.jsx')));
+const ProfesseurDashboard = Loadable(lazy(() => import('pages/ProfesseurDashboard')));
+const DoyenDashboard = Loadable(lazy(() => import('pages/DoyenDashboard')));
+const SecretaireGeneralDashboard = Loadable(lazy(() => import('pages/SecretaireGeneralDashboard')));
 
 // ==============================|| MAIN ROUTING ||============================== //
+
+// Composant pour gérer la redirection basée sur le rôle
+const RoleBasedRedirect = () => {
+    const { user } = useContext(AuthContext);
+    
+    if (user?.role === 'magasinier') {
+        return <Navigate to="/magasinier/dashboard" replace />;
+    }
+    
+    if (user?.role === 'professeur') {
+        return <Navigate to="/professeur/dashboard" replace />;
+    }
+
+    if (user?.role === 'chef_depa') {
+        return <Navigate to="/chef-departement/dashboard" replace />;
+    }
+
+    if (user?.role === 'doyen') {
+        return <Navigate to="/doyen/dashboard" replace />;
+    }
+
+    if (user?.role === 'secrétaire général') {
+        return <Navigate to="/secretaire-general/dashboard" replace />;
+    }
+    
+    return <Navigate to="/dashboard/default" replace />;
+};
 
 const MainRoutes = {
   path: '/',
@@ -33,8 +67,79 @@ const MainRoutes = {
   children: [
     {
       index: true,
-      element: <Navigate to="/login" replace />
+      element: <RoleBasedRedirect />
     },
+    // Dashboard du magasinier (protégé)
+    {
+      path: 'magasinier',
+      children: [
+        {
+          path: 'dashboard',
+          element: (
+            <PrivateRouteByRole allowedRoles={['magasinier']}>
+              <MagasinierDashboard />
+            </PrivateRouteByRole>
+          )
+        }
+      ]
+    },
+    // Dashboard du professeur (protégé)
+    {
+      path: 'professeur',
+      children: [
+        {
+          path: 'dashboard',
+          element: (
+            <PrivateRouteByRole allowedRoles={['professeur']}>
+              <ProfesseurDashboard />
+            </PrivateRouteByRole>
+          )
+        }
+      ]
+    },
+    // Dashboard du chef de département (protégé)
+    {
+      path: 'chef-departement',
+      children: [
+        {
+          path: 'dashboard',
+          element: (
+            <PrivateRouteByRole allowedRoles={['chef_depa']}>
+              <ChefDepartementDashboard />
+            </PrivateRouteByRole>
+          )
+        }
+      ]
+    },
+    // Dashboard du doyen (protégé)
+    {
+      path: 'doyen',
+      children: [
+        {
+          path: 'dashboard',
+          element: (
+            <PrivateRouteByRole allowedRoles={['doyen']}>
+              <DoyenDashboard />
+            </PrivateRouteByRole>
+          )
+        }
+      ]
+    },
+    // Dashboard du secrétaire général (protégé)
+    {
+      path: 'secretaire-general',
+      children: [
+        {
+          path: 'dashboard',
+          element: (
+            <PrivateRouteByRole allowedRoles={['secrétaire général']}>
+              <SecretaireGeneralDashboard />
+            </PrivateRouteByRole>
+          )
+        }
+      ]
+    },
+    // Dashboard par défaut pour les autres rôles
     {
       path: 'dashboard',
       children: [
@@ -138,6 +243,11 @@ const MainRoutes = {
     {
       path: 'unauthorized',
       element: <Unauthorized />
+    },
+    // Route de fallback pour les URLs non trouvées
+    {
+      path: '*',
+      element: <Navigate to="/unauthorized" replace />
     }
   ]
 };
