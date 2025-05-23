@@ -25,10 +25,16 @@ import {
     PendingActions as PendingIcon,
     CheckCircle as CheckCircleIcon,
     Cancel as CancelIcon,
-    Business as BusinessIcon
+    Business as BusinessIcon,
+    Print as PrintIcon,
+    Description as PdfIcon
 } from '@mui/icons-material';
 import { motion } from 'framer-motion';
 import { getAllDemandes, finaliserDemande, rejectDemande } from '../api/demande';
+import { getProduitsByDemande } from '../api/produitDemande';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import logo from '../components/logo/fstg_logo.png';
 import {
     PieChart,
     Pie,
@@ -227,160 +233,269 @@ const StatCard = ({ title, value, icon, color, subtitle }) => (
 const SecretaireGeneralDashboard = () => {
     const theme = useTheme();
     const [rows, setRows] = useState([]);
+    const [allDemandes, setAllDemandes] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [pdfUrl, setPdfUrl] = useState(null);
+    const [openPdf, setOpenPdf] = useState(false);
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+    const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+    const [confirmAction, setConfirmAction] = useState(null);
+    const [produits, setProduits] = useState([]);
+    const [evolutionData, setEvolutionData] = useState([]);
+    const [stats, setStats] = useState({
+        total: 0,
+        enAttente: 0,
+        finalisees: 0,
+        rejetees: 0
+    });
 
     useEffect(() => {
         const fetchData = async () => {
             try {
                 const data = await getAllDemandes();
-                console.log('=== DONNÉES REÇUES DE L\'API ===');
-                console.log('Nombre total de demandes:', data.length);
+                setAllDemandes(data);
                 
-                // Afficher tous les statuts uniques pour déboguer
-                const statutsUniques = [...new Set(data.map(d => d.statut))];
-                console.log('Statuts uniques trouvés:', statutsUniques);
-                
-                // Afficher un exemple de demande pour vérifier la structure
-                if (data.length > 0) {
-                    console.log('Exemple de demande:', {
-                        id: data[0].id,
-                        statut: data[0].statut,
-                        dateCreation: data[0].dateCreation
-                    });
-                }
-
                 // Filtrer les demandes pour le secrétaire général
-                // Inclure toutes les demandes qui sont soit en attente, soit traitées, soit rejetées
                 const filteredData = data.filter(demande => 
                     demande.statut === 'envoyée au secre' || 
                     demande.statut === 'traitée' || 
                     demande.statut === 'refusé'
                 );
-                
-                console.log('Nombre de demandes filtrées:', filteredData.length);
-                console.log('Répartition des statuts dans les données filtrées:', 
-                    filteredData.reduce((acc, d) => {
-                        acc[d.statut] = (acc[d.statut] || 0) + 1;
-                        return acc;
-                    }, {})
-                );
-                
                 setRows(filteredData);
-                setLoading(false);
+
+                // Calcul des statistiques
+                const newStats = {
+                    total: data.length,
+                    enAttente: data.filter(d => d.statut === 'envoyée au secre').length,
+                    finalisees: data.filter(d => d.statut === 'traitée').length,
+                    rejetees: data.filter(d => d.statut === 'refusé').length
+                };
+
+                setStats(newStats);
+
+                // Préparer les données pour le graphique d'évolution sur 7 jours
+                const demandesParJour = data.reduce((acc, demande) => {
+                    const date = new Date(demande.date_demande);
+                    const jourMoisAnnee = `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
+                    
+                    if (!acc[jourMoisAnnee]) {
+                        acc[jourMoisAnnee] = {
+                            date: jourMoisAnnee,
+                            total: 0,
+                            enAttente: 0,
+                            finalisees: 0,
+                            rejetees: 0
+                        };
+                    }
+                    
+                    acc[jourMoisAnnee].total++;
+                    
+                    if (demande.statut === 'envoyée au secre') {
+                        acc[jourMoisAnnee].enAttente++;
+                    } else if (demande.statut === 'traitée') {
+                        acc[jourMoisAnnee].finalisees++;
+                    } else if (demande.statut === 'refusé') {
+                        acc[jourMoisAnnee].rejetees++;
+                    }
+                    
+                    return acc;
+                }, {});
+
+                // Obtenir la date actuelle et celle d'il y a 7 jours
+                const currentDate = new Date();
+                const lastWeek = new Date(currentDate);
+                lastWeek.setDate(currentDate.getDate() - 7);
+
+                // Créer un tableau de toutes les dates entre lastWeek et currentDate
+                const allDates = [];
+                let currentDatePointer = new Date(lastWeek);
+                while (currentDatePointer <= currentDate) {
+                    const dateStr = `${String(currentDatePointer.getDate()).padStart(2, '0')}/${String(currentDatePointer.getMonth() + 1).padStart(2, '0')}/${currentDatePointer.getFullYear()}`;
+                    allDates.push(dateStr);
+                    currentDatePointer.setDate(currentDatePointer.getDate() + 1);
+                }
+
+                // Créer le tableau final avec toutes les dates
+                const evolutionArray = allDates.map(date => ({
+                    date,
+                    total: demandesParJour[date]?.total || 0,
+                    enAttente: demandesParJour[date]?.enAttente || 0,
+                    finalisees: demandesParJour[date]?.finalisees || 0,
+                    rejetees: demandesParJour[date]?.rejetees || 0
+                }));
+
+                setEvolutionData(evolutionArray);
             } catch (err) {
                 console.error('Erreur lors de la récupération des données:', err);
                 setError(err.message);
+            } finally {
                 setLoading(false);
             }
         };
 
         fetchData();
-        const interval = setInterval(fetchData, 300000);
-        return () => clearInterval(interval);
     }, []);
 
-    // Statistiques calculées avec logs
-    const stats = {
-        total: rows.length,
-        enAttente: rows.filter(d => d.statut === 'envoyée au secre').length,
-        finalisees: rows.filter(d => d.statut === 'traitée').length,
-        rejetees: rows.filter(d => d.statut === 'refusé').length
+    const handleViewProduitsPDF = async (demandeId, nomU, nomDep) => {
+        try {
+            const produitsData = await getProduitsByDemande(demandeId);
+            setProduits(produitsData);
+            
+            const doc = new jsPDF();
+            doc.addImage(logo, 'PNG', 10, 10, 40, 20);
+            doc.addImage(logo, 'PNG', 160, 10, 40, 20);
+
+            doc.setFontSize(16);
+            doc.text(`Demande d'achat #${demandeId}`, 105, 40, { align: 'center' });
+
+            doc.setFontSize(12);
+            const infos = [
+                `ID de la demande : ${demandeId}`,
+                `Demandeur : ${nomU || 'Non spécifié'}`,
+                `Département : ${nomDep || 'Non spécifié'}`,
+            ];
+            infos.forEach((line, i) => {
+                doc.text(line, 14, 50 + i * 8);
+            });
+
+            const productRows = produitsData.map((prod, i) => [
+                i + 1,
+                prod.nom,
+                prod.quantite,
+                prod.description || '',
+            ]);
+
+            autoTable(doc, {
+                head: [['#', 'Produit', 'Quantité', 'Description']],
+                body: productRows,
+                startY: 80,
+                theme: 'grid',
+                headStyles: { fillColor: [179, 107, 57] },
+                styles: { fontSize: 10 },
+                columnStyles: {
+                    0: { cellWidth: 10 },
+                    1: { cellWidth: 60 },
+                    2: { cellWidth: 25 },
+                    3: { cellWidth: 80 },
+                },
+            });
+
+            const pdfBlob = doc.output('blob');
+            const url = URL.createObjectURL(pdfBlob);
+            setPdfUrl(url);
+            setOpenPdf(true);
+        } catch (error) {
+            console.error("Erreur lors de la génération du PDF :", error);
+            setSnackbar({ open: true, message: "Erreur lors de la génération du PDF", severity: "error" });
+        }
     };
 
-    console.log('=== STATISTIQUES CALCULÉES ===');
-    console.log('Total:', stats.total);
-    console.log('En attente:', stats.enAttente);
-    console.log('Finalisées:', stats.finalisees);
-    console.log('Rejetées:', stats.rejetees);
+    const handlePrint = async (demandeId, nomU, nomDep) => {
+        try {
+            const produitsData = await getProduitsByDemande(demandeId);
+            const doc = new jsPDF();
+            
+            doc.addImage(logo, 'PNG', 10, 10, 40, 20);
+            doc.addImage(logo, 'PNG', 160, 10, 40, 20);
+
+            doc.setFontSize(16);
+            doc.text(`Demande d'achat #${demandeId}`, 105, 40, { align: 'center' });
+
+            doc.setFontSize(12);
+            const infos = [
+                `ID de la demande : ${demandeId}`,
+                `Demandeur : ${nomU || 'Non spécifié'}`,
+                `Département : ${nomDep || 'Non spécifié'}`,
+            ];
+            infos.forEach((line, i) => {
+                doc.text(line, 14, 50 + i * 8);
+            });
+
+            const productRows = produitsData.map((prod, i) => [
+                i + 1,
+                prod.nom,
+                prod.quantite,
+                prod.description || '',
+            ]);
+
+            autoTable(doc, {
+                head: [['#', 'Produit', 'Quantité', 'Description']],
+                body: productRows,
+                startY: 80,
+                theme: 'grid',
+                headStyles: { fillColor: [179, 107, 57] },
+                styles: { fontSize: 10 },
+                columnStyles: {
+                    0: { cellWidth: 10 },
+                    1: { cellWidth: 60 },
+                    2: { cellWidth: 25 },
+                    3: { cellWidth: 80 },
+                },
+            });
+
+            doc.save(`Demande_${demandeId}.pdf`);
+        } catch (error) {
+            console.error("Erreur lors de l'impression :", error);
+            setSnackbar({ open: true, message: "Erreur lors de l'impression", severity: "error" });
+        }
+    };
+
+    const handleValider = async (id) => {
+        try {
+            await finaliserDemande(id);
+            setSnackbar({ open: true, message: 'Demande validée avec succès', severity: 'success' });
+            const updatedRows = rows.map(row => 
+                row.id === id ? { ...row, statut: 'traitée' } : row
+            );
+            setRows(updatedRows);
+            
+            // Mettre à jour les statistiques
+            setStats(prev => ({
+                ...prev,
+                enAttente: prev.enAttente - 1,
+                finalisees: prev.finalisees + 1
+            }));
+        } catch (error) {
+            console.error("Erreur lors de la validation :", error);
+            setSnackbar({ open: true, message: `Erreur : ${error.message || 'Erreur inconnue'}`, severity: 'error' });
+        }
+    };
+
+    const handleRejeter = async (id) => {
+        try {
+            await rejectDemande(id);
+            setSnackbar({ open: true, message: 'Demande rejetée avec succès', severity: 'info' });
+            const updatedRows = rows.map(row => 
+                row.id === id ? { ...row, statut: 'refusé' } : row
+            );
+            setRows(updatedRows);
+            
+            // Mettre à jour les statistiques
+            setStats(prev => ({
+                ...prev,
+                enAttente: prev.enAttente - 1,
+                rejetees: prev.rejetees + 1
+            }));
+        } catch (error) {
+            console.error('Erreur lors du rejet de la demande :', error);
+            setSnackbar({ open: true, message: `Erreur : ${error.message || 'Erreur inconnue'}`, severity: 'error' });
+        }
+    };
+
+    const openConfirmDialog = (action, id) => {
+        setConfirmAction({ action, id });
+        setConfirmDialogOpen(true);
+    };
 
     // Données pour les graphiques
     const chartData = {
         statutData: [
-            { name: 'En attente', value: stats.enAttente, color: COLORS.warning },
-            { name: 'Finalisées', value: stats.finalisees, color: COLORS.success },
-            { name: 'Rejetées', value: stats.rejetees, color: COLORS.error }
+            { name: 'En attente', value: stats.enAttente, color: theme.palette.warning.main },
+            { name: 'Validées', value: stats.finalisees, color: theme.palette.success.main },
+            { name: 'Rejetées', value: stats.rejetees, color: theme.palette.error.main }
         ]
     };
-
-    // Traitement des données pour l'évolution
-    const processEvolutionData = () => {
-        const validDemandes = rows.filter(demande => {
-            const date = new Date(demande.dateCreation);
-            return !isNaN(date.getTime());
-        });
-
-        const groupedData = validDemandes.reduce((acc, demande) => {
-            const date = new Date(demande.dateCreation);
-            const moisAnnee = `${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
-            
-            if (!acc[moisAnnee]) {
-                acc[moisAnnee] = {
-                    date: moisAnnee,
-                    total: 0,
-                    traitees: 0,
-                    rejetees: 0
-                };
-            }
-            
-            acc[moisAnnee].total++;
-            
-            if (demande.statut === 'traitée') {
-                acc[moisAnnee].traitees++;
-            } else if (demande.statut === 'refusé') {
-                acc[moisAnnee].rejetees++;
-            }
-            
-            return acc;
-        }, {});
-
-        // Obtenir la date actuelle
-        const currentDate = new Date();
-        const currentMonthYear = `${String(currentDate.getMonth() + 1).padStart(2, '0')}/${currentDate.getFullYear()}`;
-
-        // Ajouter la date actuelle si elle n'existe pas
-        if (!groupedData[currentMonthYear]) {
-            groupedData[currentMonthYear] = {
-                date: currentMonthYear,
-                total: 0,
-                traitees: 0,
-                rejetees: 0
-            };
-        }
-
-        const evolutionArray = Object.values(groupedData)
-            .sort((a, b) => {
-                const [moisA, anneeA] = a.date.split('/').map(Number);
-                const [moisB, anneeB] = b.date.split('/').map(Number);
-                return (anneeA - anneeB) || (moisA - moisB);
-            });
-
-        // Si pas de données, retourner un tableau avec la date actuelle et le mois précédent
-        if (evolutionArray.length === 0) {
-            const lastMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
-            const lastMonthYear = `${String(lastMonth.getMonth() + 1).padStart(2, '0')}/${lastMonth.getFullYear()}`;
-            
-            return [
-                {
-                    date: lastMonthYear,
-                    total: 0,
-                    traitees: 0,
-                    rejetees: 0
-                },
-                {
-                    date: currentMonthYear,
-                    total: 0,
-                    traitees: 0,
-                    rejetees: 0
-                }
-            ];
-        }
-
-        return evolutionArray;
-    };
-
-    const evolutionArray = processEvolutionData();
 
     if (loading) {
         return (
@@ -444,7 +559,7 @@ const SecretaireGeneralDashboard = () => {
                                     value={stats.total}
                                     icon={<AssignmentIcon />}
                                     color={COLORS.primary}
-                                    subtitle="Demandes à traiter"
+                                    subtitle="Toutes les demandes"
                                 />
                             </Grid>
                             <Grid item xs={12} sm={6} md={3}>
@@ -453,16 +568,16 @@ const SecretaireGeneralDashboard = () => {
                                     value={stats.enAttente}
                                     icon={<PendingIcon />}
                                     color={COLORS.warning}
-                                    subtitle="Demandes en attente"
+                                    subtitle="À traiter"
                                 />
                             </Grid>
                             <Grid item xs={12} sm={6} md={3}>
                                 <StatCard
-                                    title="Finalisées"
+                                    title="Validées"
                                     value={stats.finalisees}
                                     icon={<CheckCircleIcon />}
                                     color={COLORS.success}
-                                    subtitle="Demandes validées"
+                                    subtitle="Demandes finalisées"
                                 />
                             </Grid>
                             <Grid item xs={12} sm={6} md={3}>
@@ -512,12 +627,12 @@ const SecretaireGeneralDashboard = () => {
                             <Grid item xs={12} md={6}>
                                 <Card sx={cardStyles.chartCard}>
                                     <Typography variant="h6" sx={{ mb: 2, color: COLORS.secondary }}>
-                                        Évolution des Demandes
+                                        Évolution des Demandes (7 derniers jours)
                                     </Typography>
                                     <Box sx={{ height: 400 }}>
                                         <ResponsiveContainer width="100%" height="100%">
                                             <LineChart
-                                                data={evolutionArray}
+                                                data={evolutionData}
                                                 margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
                                             >
                                                 <CartesianGrid strokeDasharray="3 3" stroke={alpha(COLORS.secondary, 0.1)} />
@@ -527,7 +642,10 @@ const SecretaireGeneralDashboard = () => {
                                                         fill: COLORS.text.secondary,
                                                         fontSize: 12
                                                     }}
-                                                    interval="preserveStartEnd"
+                                                    interval={0}
+                                                    angle={-45}
+                                                    textAnchor="end"
+                                                    height={60}
                                                 />
                                                 <YAxis 
                                                     tick={{ 
@@ -546,18 +664,21 @@ const SecretaireGeneralDashboard = () => {
                                                     formatter={(value, name) => {
                                                         const labels = {
                                                             total: 'Total Demandes',
-                                                            traitees: 'Demandes Validées',
-                                                            rejetees: 'Demandes Rejetées'
+                                                            enAttente: 'En Attente',
+                                                            finalisees: 'Validées',
+                                                            rejetees: 'Rejetées'
                                                         };
                                                         return [value, labels[name]];
                                                     }}
+                                                    labelFormatter={(label) => `Date: ${label}`}
                                                 />
                                                 <Legend 
                                                     formatter={(value) => {
                                                         const labels = {
                                                             total: 'Total Demandes',
-                                                            traitees: 'Demandes Validées',
-                                                            rejetees: 'Demandes Rejetées'
+                                                            enAttente: 'En Attente',
+                                                            finalisees: 'Validées',
+                                                            rejetees: 'Rejetées'
                                                         };
                                                         return labels[value] || value;
                                                     }}
@@ -570,27 +691,33 @@ const SecretaireGeneralDashboard = () => {
                                                     strokeWidth={2}
                                                     dot={{ r: 4 }}
                                                     activeDot={{ r: 6 }}
-                                                    connectNulls
                                                 />
                                                 <Line 
                                                     type="monotone" 
-                                                    dataKey="traitees" 
-                                                    name="Demandes Validées"
+                                                    dataKey="enAttente" 
+                                                    name="En Attente"
+                                                    stroke={COLORS.warning} 
+                                                    strokeWidth={2}
+                                                    dot={{ r: 4 }}
+                                                    activeDot={{ r: 6 }}
+                                                />
+                                                <Line 
+                                                    type="monotone" 
+                                                    dataKey="finalisees" 
+                                                    name="Validées"
                                                     stroke={COLORS.success} 
                                                     strokeWidth={2}
                                                     dot={{ r: 4 }}
                                                     activeDot={{ r: 6 }}
-                                                    connectNulls
                                                 />
                                                 <Line 
                                                     type="monotone" 
                                                     dataKey="rejetees" 
-                                                    name="Demandes Rejetées"
+                                                    name="Rejetées"
                                                     stroke={COLORS.error} 
                                                     strokeWidth={2}
                                                     dot={{ r: 4 }}
                                                     activeDot={{ r: 6 }}
-                                                    connectNulls
                                                 />
                                             </LineChart>
                                         </ResponsiveContainer>
@@ -598,6 +725,87 @@ const SecretaireGeneralDashboard = () => {
                                 </Card>
                             </Grid>
                         </Grid>
+
+                        {/* Dialogs et Snackbar */}
+                        <Dialog
+                            open={openPdf}
+                            onClose={() => setOpenPdf(false)}
+                            fullWidth
+                            maxWidth="md"
+                            PaperProps={{
+                                sx: {
+                                    borderRadius: 2,
+                                    padding: 2
+                                }
+                            }}
+                        >
+                            <DialogTitle sx={{ color: COLORS.secondary, fontWeight: 600 }}>
+                                Prévisualisation de la demande
+                            </DialogTitle>
+                            <DialogContent>
+                                {pdfUrl && (
+                                    <iframe
+                                        title="PDF Viewer"
+                                        src={pdfUrl}
+                                        width="100%"
+                                        height="500px"
+                                        style={{ border: 'none' }}
+                                    />
+                                )}
+                            </DialogContent>
+                        </Dialog>
+
+                        <Dialog
+                            open={confirmDialogOpen}
+                            onClose={() => setConfirmDialogOpen(false)}
+                            PaperProps={{
+                                sx: {
+                                    borderRadius: 2,
+                                    padding: 2
+                                }
+                            }}
+                        >
+                            <DialogTitle sx={{ color: COLORS.secondary, fontWeight: 600 }}>
+                                Confirmation
+                            </DialogTitle>
+                            <DialogContent>
+                                <Typography>
+                                    {confirmAction?.action === 'valider'
+                                        ? "Êtes-vous sûr de vouloir valider cette demande ?"
+                                        : "Êtes-vous sûr de vouloir rejeter cette demande ?"}
+                                </Typography>
+                                <Stack direction="row" spacing={2} sx={{ mt: 2, justifyContent: 'flex-end' }}>
+                                    <Button
+                                        variant="outlined"
+                                        onClick={() => setConfirmDialogOpen(false)}
+                                        sx={{ 
+                                            borderColor: COLORS.secondary,
+                                            color: COLORS.secondary,
+                                            '&:hover': {
+                                                borderColor: COLORS.secondary,
+                                                backgroundColor: `${COLORS.secondary}10`
+                                            }
+                                        }}
+                                    >
+                                        Annuler
+                                    </Button>
+                                    <Button
+                                        variant="contained"
+                                        color={confirmAction?.action === 'valider' ? 'success' : 'error'}
+                                        onClick={() => {
+                                            if (confirmAction?.action === 'valider') {
+                                                handleValider(confirmAction.id);
+                                            } else if (confirmAction?.action === 'rejeter') {
+                                                handleRejeter(confirmAction.id);
+                                            }
+                                            setConfirmDialogOpen(false);
+                                        }}
+                                    >
+                                        Confirmer
+                                    </Button>
+                                </Stack>
+                            </DialogContent>
+                        </Dialog>
 
                         <Snackbar
                             open={snackbar.open}
@@ -620,4 +828,4 @@ const SecretaireGeneralDashboard = () => {
     );
 };
 
-export default SecretaireGeneralDashboard; 
+export default SecretaireGeneralDashboard;

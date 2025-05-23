@@ -36,30 +36,28 @@ const SecretaireGeneralDashboard = Loadable(lazy(() => import('pages/SecretaireG
 
 // Composant pour gérer la redirection basée sur le rôle
 const RoleBasedRedirect = () => {
-    const { user } = useContext(AuthContext);
-    
-    if (user?.role === 'magasinier') {
-        return <Navigate to="/magasinier/dashboard" replace />;
-    }
-    
-    if (user?.role === 'professeur') {
-        return <Navigate to="/professeur/dashboard" replace />;
-    }
+  const { user } = useContext(AuthContext);
 
-    if (user?.role === 'chef_depa') {
-        return <Navigate to="/chef-departement/dashboard" replace />;
-    }
+  if (!user) {
+      return <Navigate to="/login" replace />;
+  }
 
-    if (user?.role === 'doyen') {
-        return <Navigate to="/doyen/dashboard" replace />;
-    }
-
-    if (user?.role === 'secrétaire général') {
-        return <Navigate to="/secretaire-general/dashboard" replace />;
-    }
-    
-    return <Navigate to="/dashboard/default" replace />;
+  switch (user.role) {
+      case 'magasinier':
+          return <Navigate to="/magasinier/dashboard" replace />;
+      case 'professeur':
+          return <Navigate to="/professeur/dashboard" replace />;
+      case 'chef_depa':
+          return <Navigate to="/chef-departement/dashboard" replace />;
+      case 'doyen':
+          return <Navigate to="/doyen/dashboard" replace />;
+      case 'secrétaire général':
+          return <Navigate to="/secretaire-general/dashboard" replace />;
+      default:
+          return <Navigate to="/dashboard/default" replace />;
+  }
 };
+
 
 const MainRoutes = {
   path: '/',

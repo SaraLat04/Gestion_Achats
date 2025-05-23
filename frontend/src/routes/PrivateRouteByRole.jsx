@@ -1,10 +1,15 @@
 // src/components/PrivateRouteByRole.js
 import { Navigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
 const PrivateRouteByRole = ({ children, allowedRoles }) => {
-  const user = JSON.parse(localStorage.getItem('user'));
+  const { user, isAuthenticated } = useAuth();
 
-  if (!user || !allowedRoles.includes(user.role)) {
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (!allowedRoles.includes(user.role)) {
     return <Navigate to="/unauthorized" replace />;
   }
 

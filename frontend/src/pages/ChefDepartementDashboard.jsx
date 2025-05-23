@@ -251,33 +251,117 @@ const ChefDepartementDashboard = () => {
     const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
     const [confirmAction, setConfirmAction] = useState(null);
     const [produits, setProduits] = useState([]);
+    const [evolutionData, setEvolutionData] = useState([]);
+    const [stats, setStats] = useState({
+        total: 0,
+        enAttente: 0,
+        envoyeesDoyen: 0,
+    });
 
     useEffect(() => {
         const fetchData = async () => {
             try {
                 const data = await getAllDemandes();
-                console.log('=== DONNÉES REÇUES DE L\'API ===');
-                console.log('Nombre total de demandes:', data.length);
-                if (data.length > 0) {
-                    console.log('Première demande:', {
-                        id: data[0].id,
-                        dateCreation: data[0].dateCreation,
-                        statut: data[0].statut,
-                        raw: data[0]
-                    });
+                
+                console.log('=== DONNÉES BRUTES DE L\'API (avec validations attendues) ===');
+                console.log('Données complètes:', data);
+                
+                // Calcul des statistiques basées sur le champ valide_par
+                let envoyeesDoyenCount = 0;
+                let enAttenteCount = 0;
+
+                data.forEach(demande => {
+                    console.log(`Demande ${demande.id}:`, { statut: demande.statut, valide_par: demande.valide_par });
+
+                    // Compter les demandes validées par le chef en utilisant le champ valide_par
+                    if (demande.valide_par === 'chef_depa') {
+                        envoyeesDoyenCount++;
+                    }
+
+                    // Compter les statuts actuels pour les autres statistiques
+                    if (demande.statut === 'en attente') {
+                        enAttenteCount++;
+                    } else if (demande.statut === 'envoyée au doyen') {
+                        envoyeesDoyenCount++;
+                    }
+                     // Ajoutez d'autres statuts ici si nécessaire pour le graphique
+
+                });
+
+                const newStats = {
+                    total: data.length,
+                    enAttente: enAttenteCount,
+                    envoyeesDoyen: envoyeesDoyenCount,
+                };
+
+                console.log('=== STATISTIQUES CALCULÉES (basées sur valide_par pour Envoyées Doyen) ===');
+                console.log('Nouvelles statistiques:', newStats);
+                
+                setStats(newStats);
+
+                // Adaptation de la logique d'évolution pour utiliser valide_par pour la ligne 'envoyeesDoyen'
+                const demandesParJour = data.reduce((acc, demande) => {
+                    const date = new Date(demande.date_demande);
+                    const jourMoisAnnee = `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
+                    
+                    if (!acc[jourMoisAnnee]) {
+                        acc[jourMoisAnnee] = {
+                            date: jourMoisAnnee,
+                            total: 0,
+                            enAttente: 0,
+                            envoyeesDoyen: 0,
+                        };
+                    }
+                    
+                    acc[jourMoisAnnee].total++;
+                    
+                    if (demande.valide_par === 'chef_depa') {
+                         acc[jourMoisAnnee].envoyeesDoyen++;
+                     }
+
+                    if (demande.statut === 'en attente') {
+                        acc[jourMoisAnnee].enAttente++;
+                    } else if (demande.statut === 'envoyée au doyen') {
+                        acc[jourMoisAnnee].envoyeesDoyen++;
+                    } // Ajoutez d'autres statuts si nécessaire (traitée, refusé)
+                    
+                    return acc;
+                }, {});
+
+                // Obtenir la date actuelle et celle d'il y a 7 jours
+                const currentDate = new Date();
+                const lastWeek = new Date(currentDate);
+                lastWeek.setDate(currentDate.getDate() - 7);
+
+                // Créer un tableau de toutes les dates entre lastWeek et currentDate
+                const allDates = [];
+                let currentDatePointer = new Date(lastWeek);
+                while (currentDatePointer <= currentDate) {
+                    const dateStr = `${String(currentDatePointer.getDate()).padStart(2, '0')}/${String(currentDatePointer.getMonth() + 1).padStart(2, '0')}/${currentDatePointer.getFullYear()}`;
+                    allDates.push(dateStr);
+                    currentDatePointer.setDate(currentDatePointer.getDate() + 1);
                 }
-                setRows(data);
-                setLoading(false);
+
+                // Créer le tableau final avec toutes les dates
+                const evolutionArray = allDates.map(date => ({
+                    date,
+                    total: demandesParJour[date]?.total || 0,
+                    enAttente: demandesParJour[date]?.enAttente || 0,
+                    envoyeesDoyen: demandesParJour[date]?.envoyeesDoyen || 0,
+                }));
+
+                console.log('Données d\'évolution:', evolutionArray);
+                setEvolutionData(evolutionArray);
+
             } catch (err) {
                 console.error('Erreur lors de la récupération des données:', err);
                 setError(err.message);
+            } finally {
                 setLoading(false);
             }
         };
 
         fetchData();
-        const interval = setInterval(fetchData, 300000);
-        return () => clearInterval(interval);
     }, []);
 
     const handleViewProduitsPDF = async (demandeId, nomU, nomDep) => {
@@ -452,118 +536,27 @@ const ChefDepartementDashboard = () => {
         return <Typography color="textSecondary">-</Typography>;
     };
 
-    // Statistiques calculées
-    const stats = {
-        total: rows.length,
-        enAttente: rows.filter(d => d.statut === 'en attente').length,
-        envoyeesDoyen: rows.filter(d => d.statut === 'envoyée au doyen').length
-    };
-
     // Données pour les graphiques
     const chartData = {
         statutData: [
-            { name: 'En attente', value: stats.enAttente, color: COLORS.warning },
-            { name: 'Envoyées au doyen', value: stats.envoyeesDoyen, color: COLORS.info }
+            { name: 'En attente', value: stats.enAttente, color: theme.palette.warning.main },
+            { name: 'Envoyées au doyen', value: stats.envoyeesDoyen, color: theme.palette.success.main }
         ]
     };
-
-    // Traitement des données pour l'évolution
-    const processEvolutionData = () => {
-        console.log('=== TRAITEMENT DES DONNÉES D\'ÉVOLUTION ===');
-        console.log('Nombre total de demandes:', rows.length);
-
-        // Filtrer les demandes avec des dates valides
-        const validDemandes = rows.filter(demande => {
-            const date = new Date(demande.dateCreation);
-            const isValid = !isNaN(date.getTime());
-            if (!isValid) {
-                console.log('Date invalide trouvée:', demande.dateCreation, 'pour la demande:', demande.id);
-            }
-            return isValid;
-        });
-
-        console.log('Nombre de demandes avec dates valides:', validDemandes.length);
-
-        // Grouper par mois/année
-        const groupedData = validDemandes.reduce((acc, demande) => {
-            const date = new Date(demande.dateCreation);
-            const moisAnnee = `${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
-            
-            if (!acc[moisAnnee]) {
-                acc[moisAnnee] = {
-                    date: moisAnnee,
-                    total: 0,
-                    enCours: 0
-                };
-            }
-            
-            acc[moisAnnee].total++;
-            
-            if (demande.statut === 'envoyée au doyen') {
-                acc[moisAnnee].enCours++;
-            }
-            
-            return acc;
-        }, {});
-
-        // Obtenir la date actuelle
-        const currentDate = new Date();
-        const currentMonthYear = `${String(currentDate.getMonth() + 1).padStart(2, '0')}/${currentDate.getFullYear()}`;
-
-        // Ajouter la date actuelle si elle n'existe pas
-        if (!groupedData[currentMonthYear]) {
-            groupedData[currentMonthYear] = {
-                date: currentMonthYear,
-                total: 0,
-                enCours: 0
-            };
-        }
-
-        // Convertir en tableau et trier
-        const evolutionArray = Object.values(groupedData)
-            .sort((a, b) => {
-                const [moisA, anneeA] = a.date.split('/').map(Number);
-                const [moisB, anneeB] = b.date.split('/').map(Number);
-                return (anneeA - anneeB) || (moisA - moisB);
-            });
-
-        // Si pas de données, retourner un tableau avec la date actuelle et le mois précédent
-        if (evolutionArray.length === 0) {
-            const lastMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
-            const lastMonthYear = `${String(lastMonth.getMonth() + 1).padStart(2, '0')}/${lastMonth.getFullYear()}`;
-            
-            return [
-                {
-                    date: lastMonthYear,
-                    total: 0,
-                    enCours: 0
-                },
-                {
-                    date: currentMonthYear,
-                    total: 0,
-                    enCours: 0
-                }
-            ];
-        }
-
-        return evolutionArray;
-    };
-
-    const evolutionArray = processEvolutionData();
 
     // Fonction pour obtenir la couleur du statut
     const getStatusColor = (statut) => {
         switch (statut) {
             case 'en attente':
-                return COLORS.warning;
+                return theme.palette.warning.main;
             case 'envoyée au doyen':
-                return COLORS.info;
+                return theme.palette.success.main;
             case 'traitée':
-                return COLORS.success;
+                return theme.palette.success.main;
             case 'refusé':
-                return COLORS.error;
+                return theme.palette.error.main;
             default:
-                return COLORS.text.secondary;
+                return theme.palette.text.secondary;
         }
     };
 
@@ -640,31 +633,28 @@ const ChefDepartementDashboard = () => {
 
                         {/* Statistiques principales */}
                         <Grid container spacing={3} sx={{ mb: 4 }}>
-                            <Grid item xs={12} sm={6} md={4}>
+                            <Grid item xs={12} md={4}>
                                 <StatCard
-                                    title="Total Demandes"
+                                    title="Total des Demandes"
                                     value={stats.total}
                                     icon={<AssignmentIcon />}
-                                    color={COLORS.primary}
-                                    subtitle="Toutes les demandes"
+                                    color={theme.palette.primary.main}
                                 />
                             </Grid>
-                            <Grid item xs={12} sm={6} md={4}>
+                            <Grid item xs={12} md={4}>
                                 <StatCard
-                                    title="En Attente"
+                                    title="En Attente de Validation"
                                     value={stats.enAttente}
                                     icon={<PendingIcon />}
-                                    color={COLORS.warning}
-                                    subtitle="Demandes à valider"
+                                    color={theme.palette.warning.main}
                                 />
                             </Grid>
-                            <Grid item xs={12} sm={6} md={4}>
+                            <Grid item xs={12} md={4}>
                                 <StatCard
                                     title="Envoyées au Doyen"
                                     value={stats.envoyeesDoyen}
-                                    icon={<BusinessIcon />}
-                                    color={COLORS.info}
-                                    subtitle="Demandes validées"
+                                    icon={<CheckCircleIcon />}
+                                    color={theme.palette.success.main}
                                 />
                             </Grid>
                         </Grid>
@@ -710,7 +700,7 @@ const ChefDepartementDashboard = () => {
                                     <Box sx={{ height: 400 }}>
                                         <ResponsiveContainer width="100%" height="100%">
                                             <LineChart
-                                                data={evolutionArray}
+                                                data={evolutionData}
                                                 margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
                                             >
                                                 <CartesianGrid strokeDasharray="3 3" stroke={alpha(COLORS.secondary, 0.1)} />
@@ -720,7 +710,10 @@ const ChefDepartementDashboard = () => {
                                                         fill: COLORS.text.secondary,
                                                         fontSize: 12
                                                     }}
-                                                    interval="preserveStartEnd"
+                                                    interval={0}
+                                                    angle={-45}
+                                                    textAnchor="end"
+                                                    height={60}
                                                 />
                                                 <YAxis 
                                                     tick={{ 
@@ -739,16 +732,19 @@ const ChefDepartementDashboard = () => {
                                                     formatter={(value, name) => {
                                                         const labels = {
                                                             total: 'Total Demandes',
-                                                            enCours: 'Demandes en Cours'
+                                                            enAttente: 'En Attente',
+                                                            envoyeesDoyen: 'Envoyées au Doyen',
                                                         };
                                                         return [value, labels[name]];
                                                     }}
+                                                    labelFormatter={(label) => `Date: ${label}`}
                                                 />
                                                 <Legend 
                                                     formatter={(value) => {
                                                         const labels = {
                                                             total: 'Total Demandes',
-                                                            enCours: 'Demandes en Cours'
+                                                            enAttente: 'En Attente',
+                                                            envoyeesDoyen: 'Envoyées au Doyen',
                                                         };
                                                         return labels[value] || value;
                                                     }}
@@ -761,17 +757,24 @@ const ChefDepartementDashboard = () => {
                                                     strokeWidth={2}
                                                     dot={{ r: 4 }}
                                                     activeDot={{ r: 6 }}
-                                                    connectNulls
                                                 />
                                                 <Line 
                                                     type="monotone" 
-                                                    dataKey="enCours" 
-                                                    name="Demandes en Cours"
-                                                    stroke={COLORS.info} 
+                                                    dataKey="enAttente" 
+                                                    name="En Attente"
+                                                    stroke={COLORS.warning} 
                                                     strokeWidth={2}
                                                     dot={{ r: 4 }}
                                                     activeDot={{ r: 6 }}
-                                                    connectNulls
+                                                />
+                                                <Line 
+                                                    type="monotone" 
+                                                    dataKey="envoyeesDoyen" 
+                                                    name="Validées par Chef (pour Doyen)"
+                                                    stroke={COLORS.success} 
+                                                    strokeWidth={2}
+                                                    dot={{ r: 4 }}
+                                                    activeDot={{ r: 6 }}
                                                 />
                                             </LineChart>
                                         </ResponsiveContainer>

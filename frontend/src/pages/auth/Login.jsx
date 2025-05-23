@@ -120,7 +120,7 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { setUser } = useContext(AuthContext);
+  const { login } = useContext(AuthContext);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -136,7 +136,7 @@ export default function Login() {
       if (response.data.user) {
         localStorage.setItem('token', response.data.token || '');
         localStorage.setItem('user', JSON.stringify(response.data.user));
-        setUser(response.data.user);
+        login(response.data.user);
         
         // Redirection basée sur le rôle
         const role = response.data.user.role;

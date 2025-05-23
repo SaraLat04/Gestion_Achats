@@ -234,6 +234,7 @@ const StatCard = ({ title, value, icon, color, subtitle }) => (
 const DoyenDashboard = () => {
     const theme = useTheme();
     const [rows, setRows] = useState([]);
+    const [allDemandes, setAllDemandes] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [pdfUrl, setPdfUrl] = useState(null);
@@ -242,28 +243,95 @@ const DoyenDashboard = () => {
     const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
     const [confirmAction, setConfirmAction] = useState(null);
     const [produits, setProduits] = useState([]);
+    const [evolutionData, setEvolutionData] = useState([]);
+    const [stats, setStats] = useState({
+        total: 0,
+        enAttente: 0,
+        envoyeesSecretaire: 0,
+        finalisees: 0
+    });
 
     useEffect(() => {
         const fetchData = async () => {
             try {
                 const data = await getAllDemandes();
-                console.log('=== DONNÉES REÇUES DE L\'API ===');
-                console.log('Nombre total de demandes:', data.length);
-                // Filtrer uniquement les demandes envoyées au doyen
+                setAllDemandes(data);
+                
+                // Filtrer seulement les demandes en attente de validation par le doyen
                 const filteredData = data.filter(demande => demande.statut === 'envoyée au doyen');
-                console.log('Nombre de demandes filtrées:', filteredData.length);
                 setRows(filteredData);
-                setLoading(false);
+
+                // Calcul des statistiques
+                const newStats = {
+                    total: data.length,
+                    enAttente: data.filter(d => d.statut === 'envoyée au doyen').length,
+                    envoyeesSecretaire: data.filter(d => d.statut === 'envoyée au secre').length,
+                    finalisees: data.filter(d => ['traitée', 'refusé'].includes(d.statut)).length
+                };
+
+                setStats(newStats);
+
+                // Préparer les données pour le graphique d'évolution
+                const demandesParJour = data.reduce((acc, demande) => {
+                    const date = new Date(demande.date_demande);
+                    const jourMoisAnnee = `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
+                    
+                    if (!acc[jourMoisAnnee]) {
+                        acc[jourMoisAnnee] = {
+                            date: jourMoisAnnee,
+                            total: 0,
+                            enAttente: 0,
+                            envoyeesSecretaire: 0,
+                            finalisees: 0
+                        };
+                    }
+                    
+                    acc[jourMoisAnnee].total++;
+                    
+                    if (demande.statut === 'envoyée au doyen') {
+                        acc[jourMoisAnnee].enAttente++;
+                    } else if (demande.statut === 'envoyée au secre') {
+                        acc[jourMoisAnnee].envoyeesSecretaire++;
+                    } else if (['traitée', 'refusé'].includes(demande.statut)) {
+                        acc[jourMoisAnnee].finalisees++;
+                    }
+                    
+                    return acc;
+                }, {});
+
+                // Obtenir la date actuelle et celle d'il y a 7 jours
+                const currentDate = new Date();
+                const lastWeek = new Date(currentDate);
+                lastWeek.setDate(currentDate.getDate() - 7);
+
+                // Créer un tableau de toutes les dates entre lastWeek et currentDate
+                const allDates = [];
+                let currentDatePointer = new Date(lastWeek);
+                while (currentDatePointer <= currentDate) {
+                    const dateStr = `${String(currentDatePointer.getDate()).padStart(2, '0')}/${String(currentDatePointer.getMonth() + 1).padStart(2, '0')}/${currentDatePointer.getFullYear()}`;
+                    allDates.push(dateStr);
+                    currentDatePointer.setDate(currentDatePointer.getDate() + 1);
+                }
+
+                // Créer le tableau final avec toutes les dates
+                const evolutionArray = allDates.map(date => ({
+                    date,
+                    total: demandesParJour[date]?.total || 0,
+                    enAttente: demandesParJour[date]?.enAttente || 0,
+                    envoyeesSecretaire: demandesParJour[date]?.envoyeesSecretaire || 0,
+                    finalisees: demandesParJour[date]?.finalisees || 0
+                }));
+
+                setEvolutionData(evolutionArray);
             } catch (err) {
                 console.error('Erreur lors de la récupération des données:', err);
                 setError(err.message);
+            } finally {
                 setLoading(false);
             }
         };
 
         fetchData();
-        const interval = setInterval(fetchData, 300000);
-        return () => clearInterval(interval);
     }, []);
 
     const handleViewProduitsPDF = async (demandeId, nomU, nomDep) => {
@@ -376,6 +444,13 @@ const DoyenDashboard = () => {
             setSnackbar({ open: true, message: 'Demande validée et envoyée au secrétariat général', severity: 'success' });
             const updatedRows = rows.filter(row => row.id !== id);
             setRows(updatedRows);
+            
+            // Mettre à jour les statistiques
+            setStats(prev => ({
+                ...prev,
+                enAttente: prev.enAttente - 1,
+                envoyeesSecretaire: prev.envoyeesSecretaire + 1
+            }));
         } catch (error) {
             console.error("Erreur lors de la validation :", error);
             setSnackbar({ open: true, message: `Erreur : ${error.message || 'Erreur inconnue'}`, severity: 'error' });
@@ -388,6 +463,13 @@ const DoyenDashboard = () => {
             setSnackbar({ open: true, message: 'Demande rejetée avec succès', severity: 'info' });
             const updatedRows = rows.filter(row => row.id !== id);
             setRows(updatedRows);
+            
+            // Mettre à jour les statistiques
+            setStats(prev => ({
+                ...prev,
+                enAttente: prev.enAttente - 1,
+                finalisees: prev.finalisees + 1
+            }));
         } catch (error) {
             console.error('Erreur lors du rejet de la demande :', error);
             setSnackbar({ open: true, message: `Erreur : ${error.message || 'Erreur inconnue'}`, severity: 'error' });
@@ -399,114 +481,14 @@ const DoyenDashboard = () => {
         setConfirmDialogOpen(true);
     };
 
-    // Statistiques calculées
-    const stats = {
-        total: rows.length,
-        enAttente: rows.filter(d => d.statut === 'envoyée au doyen').length,
-        envoyeesSecretaire: rows.filter(d => d.statut === 'envoyée au secre').length,
-        finalisees: rows.filter(d => ['traitée', 'refusé'].includes(d.statut)).length
-    };
-
     // Données pour les graphiques
     const chartData = {
         statutData: [
-            { name: 'En attente', value: stats.enAttente, color: COLORS.warning },
-            { name: 'Envoyées au secrétariat', value: stats.envoyeesSecretaire, color: COLORS.info },
-            { name: 'Finalisées', value: stats.finalisees, color: COLORS.success }
+            { name: 'En attente', value: stats.enAttente, color: theme.palette.warning.main },
+            { name: 'Envoyées au secrétariat', value: stats.envoyeesSecretaire, color: theme.palette.info.main },
+            { name: 'Finalisées', value: stats.finalisees, color: theme.palette.success.main }
         ]
     };
-
-    // Traitement des données pour l'évolution
-    const processEvolutionData = () => {
-        console.log('=== TRAITEMENT DES DONNÉES D\'ÉVOLUTION ===');
-        console.log('Nombre total de demandes:', rows.length);
-
-        const validDemandes = rows.filter(demande => {
-            const date = new Date(demande.dateCreation);
-            const isValid = !isNaN(date.getTime());
-            if (!isValid) {
-                console.log('Date invalide trouvée:', demande.dateCreation, 'pour la demande:', demande.id);
-            }
-            return isValid;
-        });
-
-        console.log('Nombre de demandes avec dates valides:', validDemandes.length);
-
-        const groupedData = validDemandes.reduce((acc, demande) => {
-            const date = new Date(demande.dateCreation);
-            // Format: "MM/YYYY"
-            const moisAnnee = `${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
-            
-            if (!acc[moisAnnee]) {
-                acc[moisAnnee] = {
-                    date: moisAnnee,
-                    total: 0,
-                    traitees: 0,
-                    enCours: 0
-                };
-            }
-            
-            acc[moisAnnee].total++;
-            
-            if (demande.statut === 'traitée' || demande.statut === 'refusé') {
-                acc[moisAnnee].traitees++;
-            } else if (demande.statut === 'envoyée au secre') {
-                acc[moisAnnee].enCours++;
-            }
-            
-            return acc;
-        }, {});
-
-        console.log('Données groupées:', groupedData);
-
-        // Obtenir la date actuelle
-        const currentDate = new Date();
-        const currentMonthYear = `${String(currentDate.getMonth() + 1).padStart(2, '0')}/${currentDate.getFullYear()}`;
-
-        // Ajouter la date actuelle si elle n'existe pas
-        if (!groupedData[currentMonthYear]) {
-            groupedData[currentMonthYear] = {
-                date: currentMonthYear,
-                total: 0,
-                traitees: 0,
-                enCours: 0
-            };
-        }
-
-        const evolutionArray = Object.values(groupedData)
-            .sort((a, b) => {
-                const [moisA, anneeA] = a.date.split('/').map(Number);
-                const [moisB, anneeB] = b.date.split('/').map(Number);
-                return (anneeA - anneeB) || (moisA - moisB);
-            });
-
-        console.log('Données finales pour le graphique:', evolutionArray);
-
-        // Si pas de données, retourner un tableau avec la date actuelle et le mois précédent
-        if (evolutionArray.length === 0) {
-            const lastMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
-            const lastMonthYear = `${String(lastMonth.getMonth() + 1).padStart(2, '0')}/${lastMonth.getFullYear()}`;
-            
-            return [
-                {
-                    date: lastMonthYear,
-                    total: 0,
-                    traitees: 0,
-                    enCours: 0
-                },
-                {
-                    date: currentMonthYear,
-                    total: 0,
-                    traitees: 0,
-                    enCours: 0
-                }
-            ];
-        }
-
-        return evolutionArray;
-    };
-
-    const evolutionArray = processEvolutionData();
 
     if (loading) {
         return (
@@ -570,7 +552,7 @@ const DoyenDashboard = () => {
                                     value={stats.total}
                                     icon={<AssignmentIcon />}
                                     color={COLORS.primary}
-                                    subtitle="Demandes à valider"
+                                    subtitle="Toutes les demandes"
                                 />
                             </Grid>
                             <Grid item xs={12} sm={6} md={3}>
@@ -579,16 +561,16 @@ const DoyenDashboard = () => {
                                     value={stats.enAttente}
                                     icon={<PendingIcon />}
                                     color={COLORS.warning}
-                                    subtitle="Demandes en attente"
+                                    subtitle="À valider"
                                 />
                             </Grid>
                             <Grid item xs={12} sm={6} md={3}>
                                 <StatCard
-                                    title="Envoyées au Secrétariat"
+                                    title="Envoyées Secrétariat"
                                     value={stats.envoyeesSecretaire}
                                     icon={<BusinessIcon />}
                                     color={COLORS.info}
-                                    subtitle="Demandes validées"
+                                    subtitle="Validées par le doyen"
                                 />
                             </Grid>
                             <Grid item xs={12} sm={6} md={3}>
@@ -597,7 +579,7 @@ const DoyenDashboard = () => {
                                     value={stats.finalisees}
                                     icon={<CheckCircleIcon />}
                                     color={COLORS.success}
-                                    subtitle="Demandes traitées"
+                                    subtitle="Traitements terminés"
                                 />
                             </Grid>
                         </Grid>
@@ -638,12 +620,12 @@ const DoyenDashboard = () => {
                             <Grid item xs={12} md={6}>
                                 <Card sx={cardStyles.chartCard}>
                                     <Typography variant="h6" sx={{ mb: 2, color: COLORS.secondary }}>
-                                        Évolution des Demandes
+                                        Évolution des Demandes (7 derniers jours)
                                     </Typography>
                                     <Box sx={{ height: 400 }}>
                                         <ResponsiveContainer width="100%" height="100%">
                                             <LineChart
-                                                data={evolutionArray}
+                                                data={evolutionData}
                                                 margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
                                             >
                                                 <CartesianGrid strokeDasharray="3 3" stroke={alpha(COLORS.secondary, 0.1)} />
@@ -653,7 +635,10 @@ const DoyenDashboard = () => {
                                                         fill: COLORS.text.secondary,
                                                         fontSize: 12
                                                     }}
-                                                    interval="preserveStartEnd"
+                                                    interval={0}
+                                                    angle={-45}
+                                                    textAnchor="end"
+                                                    height={60}
                                                 />
                                                 <YAxis 
                                                     tick={{ 
@@ -672,18 +657,21 @@ const DoyenDashboard = () => {
                                                     formatter={(value, name) => {
                                                         const labels = {
                                                             total: 'Total Demandes',
-                                                            traitees: 'Demandes Traitées',
-                                                            enCours: 'Demandes en Cours'
+                                                            enAttente: 'En Attente',
+                                                            envoyeesSecretaire: 'Envoyées au Secrétariat',
+                                                            finalisees: 'Finalisées'
                                                         };
                                                         return [value, labels[name]];
                                                     }}
+                                                    labelFormatter={(label) => `Date: ${label}`}
                                                 />
                                                 <Legend 
                                                     formatter={(value) => {
                                                         const labels = {
                                                             total: 'Total Demandes',
-                                                            traitees: 'Demandes Traitées',
-                                                            enCours: 'Demandes en Cours'
+                                                            enAttente: 'En Attente',
+                                                            envoyeesSecretaire: 'Envoyées au Secrétariat',
+                                                            finalisees: 'Finalisées'
                                                         };
                                                         return labels[value] || value;
                                                     }}
@@ -696,27 +684,33 @@ const DoyenDashboard = () => {
                                                     strokeWidth={2}
                                                     dot={{ r: 4 }}
                                                     activeDot={{ r: 6 }}
-                                                    connectNulls
                                                 />
                                                 <Line 
                                                     type="monotone" 
-                                                    dataKey="traitees" 
-                                                    name="Demandes Traitées"
-                                                    stroke={COLORS.success} 
+                                                    dataKey="enAttente" 
+                                                    name="En Attente"
+                                                    stroke={COLORS.warning} 
                                                     strokeWidth={2}
                                                     dot={{ r: 4 }}
                                                     activeDot={{ r: 6 }}
-                                                    connectNulls
                                                 />
                                                 <Line 
                                                     type="monotone" 
-                                                    dataKey="enCours" 
-                                                    name="Demandes en Cours"
+                                                    dataKey="envoyeesSecretaire" 
+                                                    name="Envoyées au Secrétariat"
                                                     stroke={COLORS.info} 
                                                     strokeWidth={2}
                                                     dot={{ r: 4 }}
                                                     activeDot={{ r: 6 }}
-                                                    connectNulls
+                                                />
+                                                <Line 
+                                                    type="monotone" 
+                                                    dataKey="finalisees" 
+                                                    name="Finalisées"
+                                                    stroke={COLORS.success} 
+                                                    strokeWidth={2}
+                                                    dot={{ r: 4 }}
+                                                    activeDot={{ r: 6 }}
                                                 />
                                             </LineChart>
                                         </ResponsiveContainer>
@@ -724,9 +718,6 @@ const DoyenDashboard = () => {
                                 </Card>
                             </Grid>
                         </Grid>
-
-                        {/* Section des demandes récentes */}
-                        
 
                         {/* Dialogs et Snackbar */}
                         <Dialog
@@ -830,4 +821,4 @@ const DoyenDashboard = () => {
     );
 };
 
-export default DoyenDashboard; 
+export default DoyenDashboard;

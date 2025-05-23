@@ -4,11 +4,11 @@ import { useAuth } from '../contexts/AuthContext';
 import { Box, CircularProgress } from '@mui/material';
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
-    const { user, loading, isAuthenticated } = useAuth();
+    const { user, isAuthenticated, isLoading } = useAuth();
     const location = useLocation();
 
     // Afficher un indicateur de chargement pendant la vérification de l'authentification
-    if (loading) {
+    if (isLoading) {
         return (
             <Box
                 display="flex"
@@ -28,8 +28,7 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
 
     // Si des rôles sont spécifiés et que l'utilisateur n'a pas le rôle requis
     if (allowedRoles && !allowedRoles.includes(user.role)) {
-        // Rediriger vers la page d'accueil avec un message d'erreur
-        return <Navigate to="/" state={{ error: "Vous n'avez pas les permissions nécessaires" }} replace />;
+        return <Navigate to="/unauthorized" replace />;
     }
 
     // Si tout est OK, afficher le contenu protégé

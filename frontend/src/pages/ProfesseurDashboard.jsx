@@ -247,6 +247,12 @@ const ProfesseurDashboard = () => {
     const [demandesData, setDemandesData] = useState([]);
     const [statutData, setStatutData] = useState([]);
     const [evolutionData, setEvolutionData] = useState([]);
+    const [stats, setStats] = useState({
+        total: 0,
+        enAttente: 0,
+        traitees: 0,
+        refusees: 0
+    });
 
     useEffect(() => {
         const fetchData = async () => {
@@ -256,13 +262,23 @@ const ProfesseurDashboard = () => {
 
                 // Préparer les données pour les graphiques
                 if (statsData.demandes) {
+                    // Calculer les statistiques
+                    const demandes = statsData.demandes;
+                    const newStats = {
+                        total: demandes.length,
+                        enAttente: demandes.filter(d => d.statut === 'en attente').length,
+                        traitees: demandes.filter(d => d.statut === 'traitée').length,
+                        refusees: demandes.filter(d => d.statut === 'refusé').length
+                    };
+                    setStats(newStats);
+
                     // Données pour le graphique des demandes par statut
                     const statutCounts = {
-                        'En attente': statsData.demandes.filter(d => d.statut === 'en attente').length,
-                        'Envoyée au doyen': statsData.demandes.filter(d => d.statut === 'envoyée au doyen').length,
-                        'Envoyée au secrétaire': statsData.demandes.filter(d => d.statut === 'envoyée au secre').length,
-                        'Traitée': statsData.demandes.filter(d => d.statut === 'traitée').length,
-                        'Refusée': statsData.demandes.filter(d => d.statut === 'refusé').length
+                        'En attente': newStats.enAttente,
+                        'Envoyée au doyen': demandes.filter(d => d.statut === 'envoyée au doyen').length,
+                        'Envoyée au secrétaire': demandes.filter(d => d.statut === 'envoyée au secre').length,
+                        'Traitée': newStats.traitees,
+                        'Refusée': newStats.refusees
                     };
 
                     const statutArray = Object.entries(statutCounts).map(([name, value]) => ({
@@ -276,35 +292,61 @@ const ProfesseurDashboard = () => {
                     }));
 
                     // Préparer les données pour le graphique d'évolution
-                    const demandesParMois = statsData.demandes.reduce((acc, demande) => {
+                    const demandesParJour = statsData.demandes.reduce((acc, demande) => {
                         const date = new Date(demande.date_creation);
-                        const moisAnnee = `${date.getMonth() + 1}/${date.getFullYear()}`;
+                        // Format: "JJ/MM/AAAA"
+                        const jourMoisAnnee = `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
                         
-                        if (!acc[moisAnnee]) {
-                            acc[moisAnnee] = {
-                                date: moisAnnee,
+                        if (!acc[jourMoisAnnee]) {
+                            acc[jourMoisAnnee] = {
+                                date: jourMoisAnnee,
                                 total: 0,
                                 traitees: 0,
+                                refusees: 0,
                                 enCours: 0
                             };
                         }
                         
-                        acc[moisAnnee].total++;
-                        if (demande.statut === 'traitée' || demande.statut === 'refusé') {
-                            acc[moisAnnee].traitees++;
+                        acc[jourMoisAnnee].total++;
+                        if (demande.statut === 'traitée') {
+                            acc[jourMoisAnnee].traitees++;
+                        } else if (demande.statut === 'refusé') {
+                            acc[jourMoisAnnee].refusees++;
                         } else if (demande.statut !== 'en attente') {
-                            acc[moisAnnee].enCours++;
+                            acc[jourMoisAnnee].enCours++;
                         }
                         
                         return acc;
                     }, {});
 
-                    const evolutionArray = Object.values(demandesParMois)
-                        .sort((a, b) => {
-                            const [moisA, anneeA] = a.date.split('/');
-                            const [moisB, anneeB] = b.date.split('/');
-                            return (anneeA - anneeB) || (moisA - moisB);
-                        });
+                    // Obtenir la date actuelle
+                    const currentDate = new Date();
+                    const currentDay = `${String(currentDate.getDate()).padStart(2, '0')}/${String(currentDate.getMonth() + 1).padStart(2, '0')}/${currentDate.getFullYear()}`;
+
+                    // Obtenir la date d'il y a 7 jours
+                    const lastWeek = new Date(currentDate);
+                    lastWeek.setDate(currentDate.getDate() - 7);
+                    const lastWeekDay = `${String(lastWeek.getDate()).padStart(2, '0')}/${String(lastWeek.getMonth() + 1).padStart(2, '0')}/${lastWeek.getFullYear()}`;
+
+                    // Créer un tableau de toutes les dates entre lastWeekDay et currentDay
+                    const allDates = [];
+                    let currentDatePointer = new Date(lastWeek);
+                    while (currentDatePointer <= currentDate) {
+                        const dateStr = `${String(currentDatePointer.getDate()).padStart(2, '0')}/${String(currentDatePointer.getMonth() + 1).padStart(2, '0')}/${currentDatePointer.getFullYear()}`;
+                        allDates.push(dateStr);
+                        currentDatePointer.setDate(currentDatePointer.getDate() + 1);
+                    }
+
+                    // Créer le tableau final avec toutes les dates, même celles sans données
+                    const evolutionArray = allDates.map(date => ({
+                        date,
+                        total: demandesParJour[date]?.total || 0,
+                        traitees: demandesParJour[date]?.traitees || 0,
+                        refusees: demandesParJour[date]?.refusees || 0,
+                        enCours: demandesParJour[date]?.enCours || 0
+                    }));
+
+                    console.log('Données d\'évolution:', evolutionArray);
 
                     setStatutData(statutArray);
                     setEvolutionData(evolutionArray);
@@ -380,31 +422,40 @@ const ProfesseurDashboard = () => {
 
                         {/* Statistiques principales */}
                         <Grid container spacing={3} sx={{ mb: 4 }}>
-                            <Grid item xs={12} sm={6} md={4}>
+                            <Grid item xs={12} sm={6} md={3}>
                                 <StatCard
                                     title="Total Demandes"
-                                    value={statistiques_generales.total_demandes}
+                                    value={stats.total}
                                     icon={<AssignmentIcon />}
                                     color={COLORS.primary}
                                     subtitle="Toutes vos demandes"
                                 />
                             </Grid>
-                            <Grid item xs={12} sm={6} md={4}>
+                            <Grid item xs={12} sm={6} md={3}>
                                 <StatCard
                                     title="En Attente"
-                                    value={statistiques_generales.demandes_en_attente}
+                                    value={stats.enAttente}
                                     icon={<PendingIcon />}
                                     color={COLORS.warning}
                                     subtitle="Demandes en cours de traitement"
                                 />
                             </Grid>
-                            <Grid item xs={12} sm={6} md={4}>
+                            <Grid item xs={12} sm={6} md={3}>
                                 <StatCard
-                                    title="En Cours"
-                                    value={statistiques_generales.demandes_en_cours}
-                                    icon={<AssignmentIcon />}
-                                    color={COLORS.info}
-                                    subtitle="Demandes en cours de validation"
+                                    title="Traitées"
+                                    value={stats.traitees}
+                                    icon={<CheckCircleIcon />}
+                                    color={COLORS.success}
+                                    subtitle="Demandes acceptées"
+                                />
+                            </Grid>
+                            <Grid item xs={12} sm={6} md={3}>
+                                <StatCard
+                                    title="Refusées"
+                                    value={stats.refusees}
+                                    icon={<CancelIcon />}
+                                    color={COLORS.error}
+                                    subtitle="Demandes refusées"
                                 />
                             </Grid>
                         </Grid>
@@ -507,12 +558,17 @@ const ProfesseurDashboard = () => {
                                                                 fill: COLORS.text.secondary,
                                                                 fontSize: 12
                                                             }}
+                                                            interval={0}
+                                                            angle={-45}
+                                                            textAnchor="end"
+                                                            height={60}
                                                         />
                                                         <YAxis 
                                                             tick={{ 
                                                                 fill: COLORS.text.secondary,
                                                                 fontSize: 12
                                                             }}
+                                                            allowDecimals={false}
                                                         />
                                                         <Tooltip 
                                                             contentStyle={{ 
@@ -521,13 +577,51 @@ const ProfesseurDashboard = () => {
                                                                 borderRadius: '8px',
                                                                 boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
                                                             }}
+                                                            formatter={(value, name) => {
+                                                                const labels = {
+                                                                    total: 'Total Demandes',
+                                                                    traitees: 'Demandes Traitées',
+                                                                    refusees: 'Demandes Refusées',
+                                                                    enCours: 'Demandes en Cours'
+                                                                };
+                                                                return [value, labels[name]];
+                                                            }}
+                                                            labelFormatter={(label) => `Date: ${label}`}
                                                         />
-                                                        <Legend />
+                                                        <Legend 
+                                                            formatter={(value) => {
+                                                                const labels = {
+                                                                    total: 'Total Demandes',
+                                                                    traitees: 'Demandes Traitées',
+                                                                    refusees: 'Demandes Refusées',
+                                                                    enCours: 'Demandes en Cours'
+                                                                };
+                                                                return labels[value] || value;
+                                                            }}
+                                                        />
                                                         <Line 
                                                             type="monotone" 
                                                             dataKey="total" 
                                                             name="Total Demandes"
                                                             stroke={COLORS.primary} 
+                                                            strokeWidth={2}
+                                                            dot={{ r: 4 }}
+                                                            activeDot={{ r: 6 }}
+                                                        />
+                                                        <Line 
+                                                            type="monotone" 
+                                                            dataKey="traitees" 
+                                                            name="Demandes Traitées"
+                                                            stroke={COLORS.success} 
+                                                            strokeWidth={2}
+                                                            dot={{ r: 4 }}
+                                                            activeDot={{ r: 6 }}
+                                                        />
+                                                        <Line 
+                                                            type="monotone" 
+                                                            dataKey="refusees" 
+                                                            name="Demandes Refusées"
+                                                            stroke={COLORS.error} 
                                                             strokeWidth={2}
                                                             dot={{ r: 4 }}
                                                             activeDot={{ r: 6 }}
