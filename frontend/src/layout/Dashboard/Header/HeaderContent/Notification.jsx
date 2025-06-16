@@ -1,5 +1,6 @@
 import { useRef, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom'; // Importer useNavigate pour la redirection
+import Chip from '@mui/material/Chip';
 
 // material-ui
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -181,7 +182,47 @@ const handleNotificationClick = (notifId) => {
 
 
 
+const formatStatut = (statut) => {
+  switch (statut) {
+    case 'en attente':
+      return 'En attente';
+    case 'validé':
+      return 'Validée';
+    case 'refusé':
+      return 'Rejetée';
+    case 'envoyée au doyen':
+      return 'Envoyée au doyen';
+    case 'envoyée au secre':
+      return 'Envoyée au secrétaire général';
+    case 'envoyée au responsable financier':
+      return 'Envoyée au responsable financier';
+    case 'traitée':
+      return 'Traitée';
+    default:
+      return 'Statut inconnu';
+  }
+};
 
+const getStatutChipColor = (statut) => {
+  switch (statut) {
+    case 'en attente':
+      return { label: 'En attente', color: 'warning' };
+    case 'validé':
+      return { label: 'Validée', color: 'success' };
+    case 'refusé':
+      return { label: 'Rejetée', color: 'error' };
+    case 'envoyée au doyen':
+      return { label: 'Au doyen', color: 'info' };
+    case 'envoyée au secre':
+      return { label: 'Au secrétaire général', color: 'info' };
+    case 'envoyée au responsable financier':
+      return { label: 'Au responsable financier', color: 'info' };
+    case 'traitée':
+      return { label: 'Traitée', color: 'success' };
+    default:
+      return { label: 'Inconnu', color: 'default' };
+  }
+};
 
   return (
     <Box sx={{ flexShrink: 0, ml: 0.75 }}>
@@ -279,12 +320,17 @@ const handleNotificationClick = (notifId) => {
       </Typography>
     ) : userRole === 'professeur' ? (
       <>
-        <Typography variant="h6">
-          Statut de la demande : <Typography component="span" variant="subtitle1">{notif.description?.substring(0, 50)}</Typography>
-        </Typography>
-        <Typography variant="subtitle2" color="textSecondary" sx={{ mt: 0.5 }}>
-          {notif.statut || 'En attente'}
-        </Typography>
+        <Typography variant="h6" sx={{ mb: 0.5 }}>
+  Statut de la demande : <Typography component="span" variant="subtitle1">{notif.description?.substring(0, 25)}...</Typography>
+</Typography>
+<Chip
+  label={getStatutChipColor(notif.statut).label}
+  color={getStatutChipColor(notif.statut).color}
+  size="small"
+  variant="outlined"
+/>
+
+
       </>
     ) : (
       <>
@@ -302,7 +348,7 @@ const handleNotificationClick = (notifId) => {
       ? `Quantité: ${notif.produit.quantite}`
       : userRole === 'professeur'
         ? null // Ne pas afficher de description
-        : `Description: ${notif.description?.substring(0, 50)}...`
+        : `Description: ${notif.description?.substring(0, 10)}...`
   }
 />
 

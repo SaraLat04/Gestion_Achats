@@ -1,5 +1,5 @@
 import PropTypes from 'prop-types';
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 
 // material-ui
 import { useTheme } from '@mui/material/styles';
@@ -51,6 +51,19 @@ function a11yProps(index) {
 
 export default function Profile() {
   const theme = useTheme();
+  const [user, setUser] = useState(JSON.parse(localStorage.getItem('user')));
+
+  useEffect(() => {
+    const handleProfileUpdate = (event) => {
+      setUser(event.detail);
+    };
+
+    window.addEventListener('profileUpdated', handleProfileUpdate);
+
+    return () => {
+      window.removeEventListener('profileUpdated', handleProfileUpdate);
+    };
+  }, []);
 
   const anchorRef = useRef(null);
   const [open, setOpen] = useState(false);
@@ -81,8 +94,6 @@ export default function Profile() {
   
   
   
-
-  const user = JSON.parse(localStorage.getItem('user'));
 
   return (
     <Box sx={{ flexShrink: 0, ml: 0.75 }}>

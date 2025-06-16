@@ -104,7 +104,7 @@ export const rejectDemande = async (requestId) => {
 };
 // Supprimer une demande
 export const supprimerDemande = async (id) => {
-  const response = await API.delete('/demande/${id}');
+  const response = await API.delete(`/demande/${id}`);
   return response.data;
 };
 // Récupérer les notifications selon le rôle de l'utilisateur

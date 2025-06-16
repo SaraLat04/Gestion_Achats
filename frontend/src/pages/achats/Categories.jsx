@@ -22,6 +22,8 @@ import {
   createTheme,
   CssBaseline,
   Container,
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import { getCategories, createCategorie, updateCategorie, deleteCategorie } from '../../api/categorie';
@@ -137,6 +139,11 @@ const Categories = () => {
     code: '',
     description: '',
   });
+  const [notification, setNotification] = useState({
+    open: false,
+    message: '',
+    severity: 'success'
+  });
 
   useEffect(() => {
     loadCategories();
@@ -147,6 +154,11 @@ const Categories = () => {
       const data = await getCategories();
       setCategories(data);
     } catch (error) {
+      setNotification({
+        open: true,
+        message: 'Erreur lors du chargement des catégories',
+        severity: 'error'
+      });
       console.error('Erreur lors du chargement des catégories:', error);
     }
   };
@@ -188,17 +200,45 @@ const Categories = () => {
     }));
   };
 
+  const handleCloseNotification = () => {
+    setNotification(prev => ({ ...prev, open: false }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
       if (selectedCategorie) {
         await updateCategorie(selectedCategorie.id, formData);
+        setNotification({
+          open: true,
+          message: 'Catégorie modifiée avec succès',
+          severity: 'success'
+        });
       } else {
         await createCategorie(formData);
+        setNotification({
+          open: true,
+          message: 'Catégorie ajoutée avec succès',
+          severity: 'success'
+        });
       }
       handleCloseModal();
       loadCategories();
     } catch (error) {
+      let errorMessage = 'Une erreur est survenue';
+      if (error.response?.data?.errors) {
+        const errors = error.response.data.errors;
+        if (errors.code) {
+          errorMessage = 'Ce code de catégorie existe déjà';
+        } else if (errors.nom) {
+          errorMessage = 'Le nom de la catégorie est invalide';
+        }
+      }
+      setNotification({
+        open: true,
+        message: errorMessage,
+        severity: 'error'
+      });
       console.error('Erreur lors de la sauvegarde de la catégorie:', error);
     }
   };
@@ -206,10 +246,24 @@ const Categories = () => {
   const handleDelete = async () => {
     try {
       await deleteCategorie(selectedCategorie.id);
+      setNotification({
+        open: true,
+        message: 'Catégorie supprimée avec succès',
+        severity: 'success'
+      });
       setOpenDeleteDialog(false);
       setSelectedCategorie(null);
       loadCategories();
     } catch (error) {
+      let errorMessage = 'Une erreur est survenue lors de la suppression';
+      if (error.response?.status === 422) {
+        errorMessage = 'Impossible de supprimer cette catégorie car elle contient des produits';
+      }
+      setNotification({
+        open: true,
+        message: errorMessage,
+        severity: 'error'
+      });
       console.error('Erreur lors de la suppression de la catégorie:', error);
     }
   };
@@ -405,6 +459,24 @@ const Categories = () => {
             </DialogActions>
           </Dialog>
         </Box>
+
+        {/* Notification Snackbar */}
+        <Snackbar
+          open={notification.open}
+          autoHideDuration={4000}
+          onClose={handleCloseNotification}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        >
+          <Alert 
+            onClose={handleCloseNotification} 
+            severity={notification.severity}
+            variant="filled"
+            elevation={6}
+            sx={{ width: '100%' }}
+          >
+            {notification.message}
+          </Alert>
+        </Snackbar>
       </Container>
     </ThemeProvider>
   );

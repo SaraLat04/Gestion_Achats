@@ -105,39 +105,39 @@ const ProfileTab = () => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState('');
 
+const fetchProfile = async () => {
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    const response = await axios.get('http://localhost:8000/api/profile', {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    const user = response.data;
+
+    setProfileData({
+      nom: user.nom || '',
+      prenom: user.prenom || '',
+      email: user.email || '',
+      photo: user.photo || null,
+    });
+
+    setFormData({
+      nom: user.nom || '',
+      email: user.email || '',
+      prenom: user.prenom || '',
+    });
+
+    setPreviewUrl(user.photo || '');
+  } catch (error) {
+    console.error('Erreur lors de la récupération du profil :', error);
+  }
+};
+
   useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        if (!token) return;
-
-        const response = await axios.get('http://localhost:8000/api/profile', {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        const user = response.data;
-
-        setProfileData({
-          nom: user.nom || '',
-          prenom: user.prenom || '',
-          email: user.email || '',
-          photo: user.photo || null,
-        });
-
-        setFormData({
-          nom: user.nom || '',
-          email: user.email || '',
-          prenom: user.prenom || '',
-        });
-
-        setPreviewUrl(user.photo || '');
-      } catch (error) {
-        console.error('Erreur lors de la récupération du profil :', error);
-      }
-    };
-
     fetchProfile();
   }, []);
 
@@ -150,85 +150,90 @@ const ProfileTab = () => {
   };
 
   const handleSaveProfile = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        setError('Session expirée. Veuillez vous reconnecter.');
-        return;
-      }
-
-      // Vérification que les champs ne sont pas vides
-      if (!formData.nom || !formData.prenom || !formData.email) {
-        setError('Tous les champs sont obligatoires');
-        return;
-      }
-
-      // Préparation des données
-      const data = {
-        nom: formData.nom.trim(),
-        prenom: formData.prenom.trim(),
-        email: formData.email.trim()
-      };
-
-      console.log('Données à envoyer:', data);
-
-      const response = await fetch('http://localhost:8000/api/profile', {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify(data)
-      });
-
-      const responseData = await response.json();
-
-      if (!response.ok) {
-        console.error('Erreur API:', responseData);
-        if (responseData.errors) {
-          // Gestion des erreurs de validation Laravel
-          const errorMessages = Object.values(responseData.errors).flat();
-          setError(errorMessages.join(', '));
-        } else {
-          setError(responseData.message || 'Erreur lors de la mise à jour');
-        }
-        return;
-      }
-
-      // Mise à jour réussie
-      if (responseData.user) {
-        const updatedUser = responseData.user;
-        
-        // Mise à jour des états
-        setProfileData({
-          nom: updatedUser.nom || '',
-          prenom: updatedUser.prenom || '',
-          email: updatedUser.email || '',
-          photo: updatedUser.photo || null,
-        });
-
-        setFormData({
-          nom: updatedUser.nom || '',
-          email: updatedUser.email || '',
-          prenom: updatedUser.prenom || '',
-        });
-
-        if (updatedUser.photo) {
-          setPreviewUrl(updatedUser.photo);
-        }
-
-        // Fermer le modal d'édition et ouvrir le modal de succès
-        setOpenEditModal(false);
-        setOpenSuccessModal(true);
-        setError('');
-      }
-    } catch (error) {
-      console.error('Erreur:', error);
-      setError('Erreur lors de la mise à jour du profil. Veuillez réessayer.');
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      setError('Session expirée. Veuillez vous reconnecter.');
+      return;
     }
-  };
-  
+
+    if (!formData.nom || !formData.prenom || !formData.email) {
+      setError('Tous les champs sont obligatoires');
+      return;
+    }
+
+    const formPayload = new FormData();
+    formPayload.append('nom', formData.nom);
+    formPayload.append('prenom', formData.prenom);
+    formPayload.append('email', formData.email);
+    if (selectedFile) {
+      formPayload.append('photo', selectedFile);
+    }
+
+    const response = await fetch('http://localhost:8000/api/profile', {
+        method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${token}`,
+    'Accept': 'application/json'
+  },
+  body: formPayload
+});
+
+    const responseData = await response.json();
+
+    if (!response.ok) {
+      if (responseData.errors) {
+        const errorMessages = Object.values(responseData.errors).flat();
+        setError(errorMessages.join(', '));
+      } else {
+        setError(responseData.message || 'Erreur lors de la mise à jour');
+      }
+      return;
+    }
+
+    const updatedUser = responseData.user;
+
+      // Mettre à jour le localStorage avec les nouvelles informations
+      const currentUser = JSON.parse(localStorage.getItem('user'));
+      const updatedUserData = {
+        ...currentUser,
+        nom: updatedUser.nom,
+        prenom: updatedUser.prenom,
+        email: updatedUser.email,
+        photo: updatedUser.photo
+      };
+      localStorage.setItem('user', JSON.stringify(updatedUserData));
+
+      // Émettre un événement personnalisé pour informer les autres composants du changement
+      const profileUpdateEvent = new CustomEvent('profileUpdated', { detail: updatedUserData });
+      window.dispatchEvent(profileUpdateEvent);
+
+    setProfileData({
+      nom: updatedUser.nom || '',
+      prenom: updatedUser.prenom || '',
+      email: updatedUser.email || '',
+      photo: updatedUser.photo || null,
+    });
+
+    setFormData({
+      nom: updatedUser.nom || '',
+      prenom: updatedUser.prenom || '',
+      email: updatedUser.email || '',
+    });
+
+    if (updatedUser.photo) {
+      setPreviewUrl(`${updatedUser.photo}?t=${Date.now()}`);
+    }
+    
+    setOpenEditModal(false);
+setOpenSuccessModal(true);
+setError('');
+
+  } catch (error) {
+    console.error('Erreur:', error);
+    setError('Erreur lors de la mise à jour du profil. Veuillez réessayer.');
+  }
+};
 
   const handleListItemClick = (event, index, action) => {
     setSelectedIndex(index);

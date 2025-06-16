@@ -263,29 +263,18 @@ const ChefDepartementDashboard = () => {
             try {
                 const data = await getAllDemandes();
                 
-                console.log('=== DONNÉES BRUTES DE L\'API (avec validations attendues) ===');
-                console.log('Données complètes:', data);
-                
-                // Calcul des statistiques basées sur le champ valide_par
+                // Calcul des statistiques
                 let envoyeesDoyenCount = 0;
                 let enAttenteCount = 0;
 
                 data.forEach(demande => {
-                    console.log(`Demande ${demande.id}:`, { statut: demande.statut, valide_par: demande.valide_par });
-
-                    // Compter les demandes validées par le chef en utilisant le champ valide_par
-                    if (demande.valide_par === 'chef_depa') {
-                        envoyeesDoyenCount++;
-                    }
-
-                    // Compter les statuts actuels pour les autres statistiques
+                    // Utiliser la même logique que renderActions dans validation.jsx
                     if (demande.statut === 'en attente') {
                         enAttenteCount++;
-                    } else if (demande.statut === 'envoyée au doyen') {
+                    } else if (demande.statut === 'envoyée au doyen' || demande.statut === 'envoyée au secre' || demande.statut === 'traitée') {
+                        // Compter les demandes qui affichent "Envoyée au doyen" ou "Traitée" dans la page validation
                         envoyeesDoyenCount++;
                     }
-                     // Ajoutez d'autres statuts ici si nécessaire pour le graphique
-
                 });
 
                 const newStats = {
@@ -293,13 +282,10 @@ const ChefDepartementDashboard = () => {
                     enAttente: enAttenteCount,
                     envoyeesDoyen: envoyeesDoyenCount,
                 };
-
-                console.log('=== STATISTIQUES CALCULÉES (basées sur valide_par pour Envoyées Doyen) ===');
-                console.log('Nouvelles statistiques:', newStats);
                 
                 setStats(newStats);
 
-                // Adaptation de la logique d'évolution pour utiliser valide_par pour la ligne 'envoyeesDoyen'
+                // Adaptation de la logique d'évolution
                 const demandesParJour = data.reduce((acc, demande) => {
                     const date = new Date(demande.date_demande);
                     const jourMoisAnnee = `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
@@ -315,15 +301,11 @@ const ChefDepartementDashboard = () => {
                     
                     acc[jourMoisAnnee].total++;
                     
-                    if (demande.valide_par === 'chef_depa') {
-                         acc[jourMoisAnnee].envoyeesDoyen++;
-                     }
-
                     if (demande.statut === 'en attente') {
                         acc[jourMoisAnnee].enAttente++;
-                    } else if (demande.statut === 'envoyée au doyen') {
+                    } else if (demande.statut === 'envoyée au doyen' || demande.statut === 'envoyée au secre' || demande.statut === 'traitée') {
                         acc[jourMoisAnnee].envoyeesDoyen++;
-                    } // Ajoutez d'autres statuts si nécessaire (traitée, refusé)
+                    }
                     
                     return acc;
                 }, {});
@@ -350,7 +332,6 @@ const ChefDepartementDashboard = () => {
                     envoyeesDoyen: demandesParJour[date]?.envoyeesDoyen || 0,
                 }));
 
-                console.log('Données d\'évolution:', evolutionArray);
                 setEvolutionData(evolutionArray);
 
             } catch (err) {

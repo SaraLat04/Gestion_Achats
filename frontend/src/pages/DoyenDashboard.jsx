@@ -265,8 +265,8 @@ const DoyenDashboard = () => {
                 const newStats = {
                     total: data.length,
                     enAttente: data.filter(d => d.statut === 'envoyée au doyen').length,
-                    envoyeesSecretaire: data.filter(d => d.statut === 'envoyée au secre').length,
-                    finalisees: data.filter(d => ['traitée', 'refusé'].includes(d.statut)).length
+                    envoyeesSecretaire: data.filter(d => d.statut === 'envoyée au secre' || d.statut === 'traitée').length,
+                    finalisees: data.filter(d => d.statut === 'traitée').length
                 };
 
                 setStats(newStats);
@@ -290,9 +290,9 @@ const DoyenDashboard = () => {
                     
                     if (demande.statut === 'envoyée au doyen') {
                         acc[jourMoisAnnee].enAttente++;
-                    } else if (demande.statut === 'envoyée au secre') {
+                    } else if (demande.statut === 'envoyée au secre' || demande.statut === 'traitée' || (demande.statut === 'refusé' && demande.valide_par === 'secrétaire général')) {
                         acc[jourMoisAnnee].envoyeesSecretaire++;
-                    } else if (['traitée', 'refusé'].includes(demande.statut)) {
+                    } else if (demande.statut === 'traitée') {
                         acc[jourMoisAnnee].finalisees++;
                     }
                     

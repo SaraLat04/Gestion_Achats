@@ -21,6 +21,9 @@ import Button from '@mui/material/Button';
 import Snackbar from '@mui/material/Snackbar';
 import { ThemeProvider, createTheme, CssBaseline, Container, Paper } from '@mui/material';
 import { modifierDemande } from '../../api/demande';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import MuiAlert from '@mui/material/Alert';
+import { Description, Assignment, Info, Close } from '@mui/icons-material';
 
 // Définition des couleurs principales
 const primaryColor = "#B36B39" // Couleur bronze/cuivre du logo
@@ -136,6 +139,10 @@ import { getDemandes } from '../../api/demande';
 import { supprimerDemande } from '../../api/demande'; // n'oublie pas d'importer
 import React, { useEffect, useState } from 'react';
 
+const truncateText = (text, maxLength = 15) => {
+  return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
+};
+
 function createData(request_no, user_name, request_type, status, submit_date) {
   return { request_no, user_name, request_type, status, submit_date };
 }
@@ -231,7 +238,16 @@ function RequestTableHead({ order, orderBy }) {
 function RequestStatus({ status }) {
   let color, label;
 
-  switch (status.toLowerCase()) {  // en minuscules pour éviter les problèmes de casse
+  if (!status) {
+    return (
+      <Stack direction="row" spacing={1} alignItems="center">
+        <Dot color="default" />
+        <Typography variant="body2">Non défini</Typography>
+      </Stack>
+    );
+  }
+
+  switch (status.toLowerCase()) {
     case 'en attente':
       color = 'warning';
       label = 'En attente';
@@ -253,12 +269,12 @@ function RequestStatus({ status }) {
       label = 'Traitée';
       break;
     case 'refusé':
-      color = 'error'; // souvent 'error' est utilisé pour un statut négatif
+      color = 'error';
       label = 'Refusé';
       break;
     default:
       color = 'default';
-      label = 'Inconnu';
+      label = status || 'Inconnu';
   }
 
   return (
@@ -325,6 +341,11 @@ export default function RequestTable() {
       setDemandeToDelete(null);
     }
   };
+  const [demandeToView, setDemandeToView] = useState(null);
+
+  const Alert = React.forwardRef(function Alert(props, ref) {
+    return <MuiAlert elevation={6} ref={ref} variant="filled" {...props} />;
+  });
 
   return (
     <ThemeProvider theme={theme}>
@@ -373,25 +394,34 @@ export default function RequestTable() {
                           {row.request_no}
                         </Link>
                       </TableCell>
-                      <TableCell>{row.description}</TableCell>
-                      <TableCell>{row.justification}</TableCell>
+                      <TableCell>{truncateText(row.description)}</TableCell>
+                      <TableCell>{truncateText(row.justification)}</TableCell>
                       <TableCell><RequestStatus status={row.status} /></TableCell>
                       <TableCell>{row.submit_date}</TableCell>
                       <TableCell align="center">
                         <Stack direction="row" spacing={1} justifyContent="center">
-                          <IconButton 
-                            color="error" 
-                            aria-label="Supprimer la demande" 
-                            onClick={() => setDemandeToDelete(row)}
-                            sx={{
-                              '&:hover': {
-                                backgroundColor: `${accentColor}10`
-                              }
-                            }}
-                          >
-                            <DeleteIcon />
-                          </IconButton>
-                        </Stack>
+  <IconButton 
+    color="primary" 
+    aria-label="Voir la demande" 
+    onClick={() => setDemandeToView(row)}
+    sx={{ '&:hover': { backgroundColor: `${primaryColor}10` } }}
+  >
+    <VisibilityIcon />
+  </IconButton>
+  <IconButton 
+  color="error" 
+  aria-label="Supprimer la demande" 
+  onClick={() => {
+    setDemandeToDelete(row);
+    setOpenDialog(true); // <--- ajoute cette ligne pour ouvrir la popup
+  }}
+  sx={{ '&:hover': { backgroundColor: `${accentColor}10` } }}
+>
+  <DeleteIcon />
+</IconButton>
+
+</Stack>
+
                       </TableCell>
                     </TableRow>
                   );
@@ -445,12 +475,20 @@ export default function RequestTable() {
         </Dialog>
 
         <Snackbar
-          open={snackbar.open}
-          autoHideDuration={3000}
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
-          message={snackbar.message}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-        />
+  open={snackbar.open}
+  autoHideDuration={3000}
+  onClose={() => setSnackbar({ ...snackbar, open: false })}
+  anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+>
+  <Alert 
+    onClose={() => setSnackbar({ ...snackbar, open: false })} 
+    severity={snackbar.severity} 
+    sx={{ width: '100%', fontWeight: 600 }}
+  >
+    {snackbar.message}
+  </Alert>
+</Snackbar>
+
 
         <Dialog 
           open={openUpdateDialog} 
@@ -553,6 +591,147 @@ export default function RequestTable() {
           </DialogActions>
         </Dialog>
       </Container>
+      <Dialog 
+  open={!!demandeToView} 
+  onClose={() => setDemandeToView(null)} 
+  maxWidth="sm" 
+  fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 4,
+            padding: 2,
+            background: 'linear-gradient(to bottom, #ffffff, #f8f9fa)'
+          }
+        }}
+>
+        <DialogTitle sx={{ 
+          color: secondaryColor, 
+          fontWeight: 600,
+          borderBottom: `1px solid ${backgroundColor}`,
+          pb: 2,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1
+        }}>
+          <VisibilityIcon sx={{ color: primaryColor }} />
+    Détails de la Demande n° {demandeToView?.request_no}
+  </DialogTitle>
+        <DialogContent dividers sx={{ mt: 2 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <Box>
+              <Typography 
+                variant="h6" 
+                sx={{ 
+                  color: primaryColor, 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: 1,
+                  mb: 1 
+                }}
+              >
+                <Description sx={{ fontSize: 20 }} />
+                Description
+              </Typography>
+              <Paper 
+                elevation={0} 
+                sx={{ 
+                  p: 2, 
+                  backgroundColor: `${backgroundColor}40`,
+                  borderRadius: 2
+                }}
+              >
+                <Typography variant="body1">
+                  {demandeToView?.description || 'Aucune description fournie'}
+                </Typography>
+              </Paper>
+            </Box>
+
+            <Box>
+              <Typography 
+                variant="h6" 
+                sx={{ 
+                  color: primaryColor, 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: 1,
+                  mb: 1 
+                }}
+              >
+                <Assignment sx={{ fontSize: 20 }} />
+                Justification
+              </Typography>
+              <Paper 
+                elevation={0} 
+                sx={{ 
+                  p: 2, 
+                  backgroundColor: `${backgroundColor}40`,
+                  borderRadius: 2
+                }}
+              >
+                <Typography variant="body1">
+                  {demandeToView?.justification || 'Aucune justification fournie'}
+    </Typography>
+              </Paper>
+            </Box>
+
+            <Box>
+              <Typography 
+                variant="h6" 
+                sx={{ 
+                  color: primaryColor, 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: 1,
+                  mb: 1 
+                }}
+              >
+                <Info sx={{ fontSize: 20 }} />
+                Informations
+    </Typography>
+              <Paper 
+                elevation={0} 
+                sx={{ 
+                  p: 2, 
+                  backgroundColor: `${backgroundColor}40`,
+                  borderRadius: 2
+                }}
+              >
+                <Stack spacing={2}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography variant="body2" color="text.secondary">Statut :</Typography>
+                    <RequestStatus status={demandeToView?.status} />
+                  </Box>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography variant="body2" color="text.secondary">Date de soumission :</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                      {demandeToView?.submit_date || 'Non spécifiée'}
+    </Typography>
+                  </Box>
+                </Stack>
+              </Paper>
+            </Box>
+          </Box>
+  </DialogContent>
+        <DialogActions sx={{ p: 2, borderTop: `1px solid ${backgroundColor}` }}>
+          <Button 
+            onClick={() => setDemandeToView(null)} 
+            variant="contained"
+            startIcon={<Close />}
+            sx={{
+              background: `linear-gradient(45deg, ${primaryColor} 30%, ${primaryColor}CC 90%)`,
+              '&:hover': {
+                background: `linear-gradient(45deg, ${primaryColor}CC 30%, ${primaryColor} 90%)`,
+                transform: 'translateY(-2px)',
+                boxShadow: '0 4px 8px rgba(0,0,0,0.1)'
+              },
+              transition: 'all 0.3s ease'
+            }}
+          >
+      Fermer
+    </Button>
+  </DialogActions>
+</Dialog>
+
     </ThemeProvider>
   );
 }

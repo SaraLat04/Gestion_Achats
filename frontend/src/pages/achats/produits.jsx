@@ -25,6 +25,8 @@ import {
   createTheme,
   CssBaseline,
   Container,
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import { Edit as EditIcon, Delete as DeleteIcon, Add as AddIcon } from '@mui/icons-material';
 import { getProduits, createProduit, updateProduit, deleteProduit } from '../../api/produit';
@@ -164,6 +166,11 @@ const Produits = () => {
     prix: '',
     image: null,
   });
+  const [notification, setNotification] = useState({
+    open: false,
+    message: '',
+    severity: 'success'
+  });
 
   useEffect(() => {
     loadProduits();
@@ -175,6 +182,11 @@ const Produits = () => {
       const data = await getProduits();
       setProduits(data);
     } catch (error) {
+      setNotification({
+        open: true,
+        message: 'Erreur lors du chargement des produits',
+        severity: 'error'
+      });
       console.error('Erreur lors du chargement des produits:', error);
     }
   };
@@ -249,15 +261,68 @@ const Produits = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Vérification des champs requis
+    const requiredFields = {
+      code: 'Code',
+      nom: 'Nom',
+      marque: 'Marque',
+      categorie_id: 'Catégorie',
+      quantite: 'Quantité',
+      unite: 'Unité',
+      prix: 'Prix'
+    };
+
+    const emptyFields = Object.entries(requiredFields)
+      .filter(([field]) => !formData[field])
+      .map(([_, label]) => label);
+
+    if (emptyFields.length > 0) {
+      setNotification({
+        open: true,
+        message: `Veuillez remplir tous les champs requis : ${emptyFields.join(', ')}`,
+        severity: 'warning'
+      });
+      return;
+    }
+
     try {
       if (selectedProduit) {
         await updateProduit(selectedProduit.id, formData);
+        setNotification({
+          open: true,
+          message: 'Produit modifié avec succès',
+          severity: 'success'
+        });
       } else {
         await createProduit(formData);
+        setNotification({
+          open: true,
+          message: 'Produit ajouté avec succès',
+          severity: 'success'
+        });
       }
       handleCloseModal();
       loadProduits();
     } catch (error) {
+      let errorMessage = 'Une erreur est survenue';
+      if (error.response?.data?.errors) {
+        const errors = error.response.data.errors;
+        if (errors.code) {
+          errorMessage = 'Ce code de produit existe déjà';
+        } else if (errors.nom) {
+          errorMessage = 'Le nom du produit est invalide';
+        } else if (errors.prix) {
+          errorMessage = 'Le prix doit être un nombre positif';
+        } else if (errors.quantite) {
+          errorMessage = 'La quantité doit être un nombre positif';
+        }
+      }
+      setNotification({
+        open: true,
+        message: errorMessage,
+        severity: 'error'
+      });
       console.error('Erreur lors de la sauvegarde du produit:', error);
     }
   };
@@ -265,10 +330,20 @@ const Produits = () => {
   const handleDelete = async () => {
     try {
       await deleteProduit(selectedProduit.id);
+      setNotification({
+        open: true,
+        message: 'Produit supprimé avec succès',
+        severity: 'success'
+      });
       setOpenDeleteDialog(false);
       setSelectedProduit(null);
       loadProduits();
     } catch (error) {
+      setNotification({
+        open: true,
+        message: 'Erreur lors de la suppression du produit',
+        severity: 'error'
+      });
       console.error('Erreur lors de la suppression du produit:', error);
     }
   };
@@ -282,6 +357,10 @@ const Produits = () => {
       produit.marque.toLowerCase().includes(searchTerm.toLowerCase());
     return matchCategorie && matchSearch;
   });
+
+  const handleCloseNotification = () => {
+    setNotification(prev => ({ ...prev, open: false }));
+  };
 
   return (
     <ThemeProvider theme={theme}>
@@ -438,17 +517,42 @@ const Produits = () => {
                 top: '50%',
                 left: '50%',
                 transform: 'translate(-50%, -50%)',
-                width: 400,
+                width: '90%',
+                maxWidth: 600,
+                maxHeight: '90vh',
                 bgcolor: 'background.paper',
                 boxShadow: 24,
-                p: 4,
                 borderRadius: 4,
+                overflow: 'hidden',
+                display: 'flex',
+                flexDirection: 'column'
               }}
             >
-              <Typography variant="h2" sx={{ mb: 3 }}>
+              <Box sx={{ p: 3, borderBottom: 1, borderColor: 'divider' }}>
+                <Typography variant="h2" sx={{ mb: 0 }}>
                 {selectedProduit ? 'Modifier le produit' : 'Ajouter un produit'}
               </Typography>
-              <form onSubmit={handleSubmit}>
+              </Box>
+
+              <Box sx={{ 
+                p: 3, 
+                overflowY: 'auto',
+                '&::-webkit-scrollbar': {
+                  width: '8px',
+                },
+                '&::-webkit-scrollbar-track': {
+                  background: '#f1f1f1',
+                  borderRadius: '4px',
+                },
+                '&::-webkit-scrollbar-thumb': {
+                  background: '#888',
+                  borderRadius: '4px',
+                },
+                '&::-webkit-scrollbar-thumb:hover': {
+                  background: '#555',
+                },
+              }}>
+                <form id="produit-form" onSubmit={handleSubmit}>
                 <Grid container spacing={2}>
                   <Grid item xs={12}>
                     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 2 }}>
@@ -480,7 +584,8 @@ const Produits = () => {
                       </label>
                     </Box>
                   </Grid>
-                  <Grid item xs={12}>
+
+                    <Grid item xs={12} md={6}>
                     <TextField
                       fullWidth
                       label="Code"
@@ -491,7 +596,8 @@ const Produits = () => {
                       variant="outlined"
                     />
                   </Grid>
-                  <Grid item xs={12}>
+
+                    <Grid item xs={12} md={6}>
                     <TextField
                       fullWidth
                       label="Nom"
@@ -502,7 +608,8 @@ const Produits = () => {
                       variant="outlined"
                     />
                   </Grid>
-                  <Grid item xs={12}>
+
+                    <Grid item xs={12} md={6}>
                     <TextField
                       fullWidth
                       label="Marque"
@@ -513,7 +620,8 @@ const Produits = () => {
                       variant="outlined"
                     />
                   </Grid>
-                  <Grid item xs={12}>
+
+                    <Grid item xs={12} md={6}>
                     <TextField
                       fullWidth
                       select
@@ -531,7 +639,8 @@ const Produits = () => {
                       ))}
                     </TextField>
                   </Grid>
-                  <Grid item xs={6}>
+
+                    <Grid item xs={12} md={6}>
                     <TextField
                       fullWidth
                       label="Quantité"
@@ -543,7 +652,8 @@ const Produits = () => {
                       variant="outlined"
                     />
                   </Grid>
-                  <Grid item xs={6}>
+
+                    <Grid item xs={12} md={6}>
                     <TextField
                       fullWidth
                       select
@@ -561,6 +671,7 @@ const Produits = () => {
                       ))}
                     </TextField>
                   </Grid>
+
                   <Grid item xs={12}>
                     <TextField
                       fullWidth
@@ -576,8 +687,18 @@ const Produits = () => {
                       variant="outlined"
                     />
                   </Grid>
-                  <Grid item xs={12}>
-                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
+                  </Grid>
+                </form>
+              </Box>
+
+              <Box sx={{ 
+                p: 3, 
+                borderTop: 1, 
+                borderColor: 'divider',
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: 2
+              }}>
                       <Button 
                         onClick={handleCloseModal}
                         variant="outlined"
@@ -587,15 +708,13 @@ const Produits = () => {
                       </Button>
                       <Button 
                         type="submit" 
+                  form="produit-form"
                         variant="contained"
                         color="primary"
                       >
                         {selectedProduit ? 'Modifier' : 'Ajouter'}
                       </Button>
                     </Box>
-                  </Grid>
-                </Grid>
-              </form>
             </Box>
           </Modal>
 
@@ -635,6 +754,24 @@ const Produits = () => {
             </DialogActions>
           </Dialog>
         </Box>
+
+        {/* Notification Snackbar */}
+        <Snackbar
+          open={notification.open}
+          autoHideDuration={4000}
+          onClose={handleCloseNotification}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        >
+          <Alert 
+            onClose={handleCloseNotification} 
+            severity={notification.severity}
+            variant="filled"
+            elevation={6}
+            sx={{ width: '100%' }}
+          >
+            {notification.message}
+          </Alert>
+        </Snackbar>
       </Container>
     </ThemeProvider>
   );

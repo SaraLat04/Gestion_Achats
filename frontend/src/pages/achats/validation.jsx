@@ -13,12 +13,13 @@ import TableRow from '@mui/material/TableRow';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import { Print as PrintIcon, Description as PdfIcon } from '@mui/icons-material';
+import { Print as PrintIcon, Description as PdfIcon, Description, Close, Download as DownloadIcon } from '@mui/icons-material';
 import { getAllDemandes, sendToDean,sendToSecretaireGeneral, finaliserDemande, rejectDemande } from '../../api/demande';
 
 import { getProduitsByDemande } from '../../api/produitDemande' ; // adapte le chemin selon ton projet
 
 import logo from '../../components/logo/fstg_logo.png';
+import header from '/src/components/logo/header.PNG';
 
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -193,6 +194,8 @@ export default function RequestTable() {
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
 const [confirmAction, setConfirmAction] = useState(null);
 const [produits, setProduits] = useState([]);
+  const [descriptionDialog, setDescriptionDialog] = useState({ open: false, content: '', title: '' });
+  const [expandedDescriptions, setExpandedDescriptions] = useState({});
  // { action: 'valider' | 'rejeter', id: number }
 
   const order = 'asc';
@@ -210,62 +213,110 @@ const [produits, setProduits] = useState([]);
     }
   };
 
-  
-
-  
-
 const handleViewProduitsPDF = async (demandeId, nomU, nomDep) => {
   try {
-    // Récupérer les produits via API Laravel
     const produitsData = await getProduitsByDemande(demandeId); 
+      const demandeInfo = rows.find(row => row.id === demandeId);
     setProduits(produitsData);
-    console.log("Produits récupérés :", produitsData);
-    console.log("ID de la demande :", demandeId);
+      
     const doc = new jsPDF();
 
-    
-
-    doc.addImage(logo, 'PNG', 10, 10, 40, 20);
-    doc.addImage(logo, 'PNG', 160, 10, 40, 20);
+      // Ajouter le header.png en haut du document
+      doc.addImage(header, 'PNG', 10, 10, 190, 40);
 
     // --- Titre ---
-    doc.setFontSize(16);
-    doc.text(`Produits de la Demande #${demandeId}`, 105, 40, { align: 'center' });
+      doc.setFontSize(20);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(44, 62, 80); // Couleur bleu foncé
+      doc.text("DEMANDE D'ACHAT", 105, 65, { align: 'center' });
 
     // --- Informations sur la demande ---
     doc.setFontSize(12);
+      doc.setTextColor(44, 62, 80);
     const infos = [
-      `ID de la demande : ${demandeId}`,
-      `Nom du demandeur : ${nomU || 'Non spécifié'}`,
-      `Nom du departement : ${nomDep || 'Non spécifié'}`,
-      // `Date de création : ${new Date(demande.created_at).toLocaleDateString()}`,
+        `Numéro de demande : ${demandeId}`,
+        `Demandeur : ${nomU || 'Non spécifié'}`,
+        `Département : ${nomDep || 'Non spécifié'}`
     ];
     infos.forEach((line, i) => {
-      doc.text(line, 14, 50 + i * 8);
+        doc.text(line, 14, 75 + i * 8);
     });
 
+      // --- Description ---
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text("Description :", 14, 115);
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'normal');
+      const descriptionLines = doc.splitTextToSize(demandeInfo?.description || 'Aucune description fournie', 180);
+      doc.text(descriptionLines, 20, 125);
+
+      // --- Justification ---
+      const descHeight = descriptionLines.length * 7;
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text("Justification :", 14, 125 + descHeight + 10);
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'normal');
+      const justificationLines = doc.splitTextToSize(demandeInfo?.justification || 'Aucune justification fournie', 180);
+      doc.text(justificationLines, 20, 125 + descHeight + 20);
+
     // --- Table des produits ---
+      const startY = 125 + descHeight + 20 + (justificationLines.length * 7) + 15;
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text("Liste des Produits :", 14, startY - 5);
+
     const productRows = produitsData.map((prod, i) => [
       i + 1,
       prod.nom,
       prod.quantite,
-      prod.description || '',
+        prod.unite || 'U'
     ]);
 
     autoTable(doc, {
-      head: [['#', 'Nom du produit', 'Quantité', 'Description']],
+        head: [['#', 'Désignation', 'Quantité', 'Unité']],
       body: productRows,
-      startY: 80,
+        startY: startY,
       theme: 'grid',
-      headStyles: { fillColor: [22, 160, 133] },
-      styles: { fontSize: 10 },
+        headStyles: {
+          fillColor: [179, 107, 57], // Couleur bronze/cuivre
+          textColor: 255,
+          fontStyle: 'bold',
+          fontSize: 12
+        },
+        styles: {
+          fontSize: 11,
+          cellPadding: 5,
+          lineColor: [44, 62, 80],
+          lineWidth: 0.1
+        },
+        alternateRowStyles: {
+          fillColor: [245, 245, 245]
+        },
       columnStyles: {
-        0: { cellWidth: 10 },  // index
-        1: { cellWidth: 60 },  // nom
-        2: { cellWidth: 25 },  // quantité
-        3: { cellWidth: 80 },  // description
-      },
-    });
+          0: { cellWidth: 15, halign: 'center' },
+          1: { cellWidth: 120 },
+          2: { cellWidth: 30, halign: 'center' },
+          3: { cellWidth: 25, halign: 'center' }
+        }
+      });
+
+      // --- Section Signature ---
+      const lastTableY = doc.lastAutoTable.finalY || startY + (productRows.length * 10);
+      const signatureY = lastTableY + 20;
+
+      // Ligne de signature simple
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'normal');
+      doc.text("Signature :", 30, signatureY);
+      doc.line(30, signatureY + 5, 90, signatureY + 5);
+
+      // --- Pied de page ---
+      const pageHeight = doc.internal.pageSize.height;
+      doc.setFontSize(10);
+      doc.setTextColor(128, 128, 128);
+      doc.text("Document généré automatiquement", 105, pageHeight - 10, { align: 'center' });
 
     // --- Générer l'URL du PDF et ouvrir la fenêtre ---
     const pdfBlob = doc.output('blob');
@@ -280,6 +331,118 @@ const handleViewProduitsPDF = async (demandeId, nomU, nomDep) => {
   }
 };
 
+  const handlePrint = async (demandeId, nomU, nomDep) => {
+    try {
+      const produitsData = await getProduitsByDemande(demandeId);
+      const demandeInfo = rows.find(row => row.id === demandeId);
+      
+      const doc = new jsPDF();
+
+      // Ajouter le header.png en haut du document
+      doc.addImage(header, 'PNG', 10, 10, 190, 40);
+
+      // --- Titre ---
+      doc.setFontSize(20);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(44, 62, 80);
+      doc.text("DEMANDE D'ACHAT", 105, 65, { align: 'center' });
+
+      // --- Informations sur la demande ---
+      doc.setFontSize(12);
+      doc.setTextColor(44, 62, 80);
+      const infos = [
+        `Numéro de demande : ${demandeId}`,
+        `Demandeur : ${nomU || 'Non spécifié'}`,
+        `Département : ${nomDep || 'Non spécifié'}`
+      ];
+      infos.forEach((line, i) => {
+        doc.text(line, 14, 75 + i * 8);
+      });
+
+      // --- Description ---
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text("Description :", 14, 115);
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'normal');
+      const descriptionLines = doc.splitTextToSize(demandeInfo?.description || 'Aucune description fournie', 180);
+      doc.text(descriptionLines, 20, 125);
+
+      // --- Justification ---
+      const descHeight = descriptionLines.length * 7;
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text("Justification :", 14, 125 + descHeight + 10);
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'normal');
+      const justificationLines = doc.splitTextToSize(demandeInfo?.justification || 'Aucune justification fournie', 180);
+      doc.text(justificationLines, 20, 125 + descHeight + 20);
+
+      // --- Table des produits ---
+      const startY = 125 + descHeight + 20 + (justificationLines.length * 7) + 15;
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text("Liste des Produits :", 14, startY - 5);
+
+      const productRows = produitsData.map((prod, i) => [
+        i + 1,
+        prod.nom,
+        prod.quantite,
+        prod.unite || 'U'
+      ]);
+
+      autoTable(doc, {
+        head: [['#', 'Désignation', 'Quantité', 'Unité']],
+        body: productRows,
+        startY: startY,
+        theme: 'grid',
+        headStyles: {
+          fillColor: [179, 107, 57],
+          textColor: 255,
+          fontStyle: 'bold',
+          fontSize: 12
+        },
+        styles: {
+          fontSize: 11,
+          cellPadding: 5,
+          lineColor: [44, 62, 80],
+          lineWidth: 0.1
+        },
+        alternateRowStyles: {
+          fillColor: [245, 245, 245]
+        },
+        columnStyles: {
+          0: { cellWidth: 15, halign: 'center' },
+          1: { cellWidth: 120 },
+          2: { cellWidth: 30, halign: 'center' },
+          3: { cellWidth: 25, halign: 'center' }
+        }
+      });
+
+      // --- Section Signature ---
+      const lastTableY = doc.lastAutoTable.finalY || startY + (productRows.length * 10);
+      const signatureY = lastTableY + 20;
+
+      // Ligne de signature simple
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'normal');
+      doc.text("Signature :", 30, signatureY);
+      doc.line(30, signatureY + 5, 90, signatureY + 5);
+
+      // --- Pied de page ---
+      const pageHeight = doc.internal.pageSize.height;
+      doc.setFontSize(10);
+      doc.setTextColor(128, 128, 128);
+      doc.text("Document généré automatiquement", 105, pageHeight - 10, { align: 'center' });
+
+      // --- Télécharger le PDF ---
+      doc.save(`demande_achat_${demandeId}.pdf`);
+
+    } catch (error) {
+      console.error("Erreur lors de la génération du PDF :", error);
+      setSnackbar({ open: true, message: "Erreur lors de la génération du PDF", severity: "error" });
+    }
+  };
 
   useEffect(() => {
     fetchData();
@@ -543,62 +706,71 @@ const handleViewProduitsPDF = async (demandeId, nomU, nomDep) => {
   };
   
   
-  const handlePrint = async (demandeId, nomU, nomDep) => {
-  try {
-    const produitsData = await getProduitsByDemande(demandeId);
+  const toggleDescription = (id) => {
+    setExpandedDescriptions(prev => ({
+      ...prev,
+      [id]: !prev[id]
+    }));
+  };
 
-    const doc = new jsPDF();
-
-    // Logos en haut à gauche et droite
-    doc.addImage(logo, 'PNG', 10, 10, 40, 20);
-    doc.addImage(logo, 'PNG', 160, 10, 40, 20);
-
-    // Titre centré
-    doc.setFontSize(16);
-    doc.text(`Produits de la Demande #${demandeId}`, 105, 40, { align: 'center' });
-
-    // Informations sur la demande
-    doc.setFontSize(12);
-    const infos = [
-      `ID de la demande : ${demandeId}`,
-      `Nom du demandeur : ${nomU || 'Non spécifié'}`,
-      `Nom du département : ${nomDep || 'Non spécifié'}`,
-    ];
-    infos.forEach((line, i) => {
-      doc.text(line, 14, 50 + i * 8);
+  const handleOpenDescription = (description, id) => {
+    setDescriptionDialog({
+      open: true,
+      content: description,
+      title: `Description de la demande #${id}`
     });
+  };
 
-    // Tableau des produits
-    const productRows = produitsData.map((prod, i) => [
-      i + 1,
-      prod.nom,
-      prod.quantite,
-      prod.description || '',
-    ]);
+  const handleCloseDescription = () => {
+    setDescriptionDialog({ open: false, content: '', title: '' });
+  };
 
-    autoTable(doc, {
-      head: [['#', 'Nom du produit', 'Quantité', 'Description']],
-      body: productRows,
-      startY: 80,
-      theme: 'grid',
-      headStyles: { fillColor: [22, 160, 133] },
-      styles: { fontSize: 10 },
-      columnStyles: {
-        0: { cellWidth: 10 },
-        1: { cellWidth: 60 },
-        2: { cellWidth: 25 },
-        3: { cellWidth: 80 },
-      },
-    });
+  const renderDescription = (description, id) => {
+    const maxLength = 10;
+    
+    if (!description) return 'Aucune description';
+    
+    return (
+      <Box>
+        <Typography variant="body2" sx={{ mb: 1 }}>
+          {description.length > maxLength 
+            ? `${description.substring(0, maxLength)}...` 
+            : description}
+        </Typography>
+        {description.length > maxLength && (
+          <Link
+            component="button"
+            variant="body2"
+            onClick={() => handleOpenDescription(description, id)}
+            sx={{
+              color: primaryColor,
+              textDecoration: 'none',
+              position: 'relative',
+              '&:after': {
+                content: '""',
+                position: 'absolute',
+                width: '100%',
+                height: '1px',
+                bottom: 0,
+                left: 0,
+                backgroundColor: primaryColor,
+                transform: 'scaleX(0)',
+                transformOrigin: 'bottom right',
+                transition: 'transform 0.3s ease-out'
+              },
+              '&:hover:after': {
+                transform: 'scaleX(1)',
+                transformOrigin: 'bottom left'
+              }
+            }}
+          >
+            Lire la suite
+          </Link>
+        )}
+      </Box>
+    );
+  };
 
-    // --- Télécharger le PDF directement ---
-    doc.save(`Demande_${demandeId}.pdf`);
-
-  } catch (error) {
-    console.error("Erreur lors du téléchargement du PDF :", error);
-    setSnackbar({ open: true, message: "Erreur lors du téléchargement du PDF", severity: "error" });
-  }
-};
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
@@ -648,7 +820,7 @@ const handleViewProduitsPDF = async (demandeId, nomU, nomDep) => {
                       </TableCell>
                       <TableCell>{row.utilisateur?.nom || 'Inconnu'} {row.utilisateur?.prenom || ''}</TableCell>
                       <TableCell>{row.departement}</TableCell>
-                      <TableCell>{row.description}</TableCell>
+                      <TableCell>{renderDescription(row.description, row.id)}</TableCell>
                       <TableCell>
                         <Stack direction="row" spacing={1} sx={{ mb: 1 }}>
                           <Button
@@ -671,7 +843,7 @@ const handleViewProduitsPDF = async (demandeId, nomU, nomDep) => {
                             variant="contained"
                             size="small"
                             onClick={() => handlePrint(row.id, row.utilisateur?.nom, row.departement)}
-                            startIcon={<PrintIcon />}
+                            startIcon={<DownloadIcon />}
                             sx={{
                               background: `linear-gradient(45deg, ${primaryColor} 30%, ${primaryColor}CC 90%)`,
                               '&:hover': {
@@ -679,7 +851,7 @@ const handleViewProduitsPDF = async (demandeId, nomU, nomDep) => {
                               }
                             }}
                           >
-                            Imprimer
+                            Télécharger
                           </Button>
                         </Stack>
                         {renderActions(row)}
@@ -791,6 +963,66 @@ const handleViewProduitsPDF = async (demandeId, nomU, nomDep) => {
               </Button>
             </Stack>
           </DialogContent>
+        </Dialog>
+
+        <Dialog
+          open={descriptionDialog.open}
+          onClose={handleCloseDescription}
+          maxWidth="sm"
+          fullWidth
+          PaperProps={{
+            sx: {
+              borderRadius: 4,
+              padding: 3,
+              background: 'linear-gradient(to bottom, #ffffff, #f8f9fa)'
+            }
+          }}
+        >
+          <DialogTitle sx={{ 
+            color: secondaryColor, 
+            fontWeight: 600,
+            borderBottom: `1px solid ${backgroundColor}`,
+            pb: 2,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1
+          }}>
+            <Description sx={{ color: primaryColor }} />
+            {descriptionDialog.title}
+          </DialogTitle>
+          <DialogContent sx={{ mt: 2 }}>
+            <Typography variant="body1" sx={{ 
+              whiteSpace: 'pre-wrap',
+              lineHeight: 1.8,
+              color: secondaryColor,
+              fontSize: '1.1rem'
+            }}>
+              {descriptionDialog.content}
+            </Typography>
+          </DialogContent>
+          <Box sx={{ 
+            p: 2, 
+            display: 'flex', 
+            justifyContent: 'flex-end',
+            borderTop: `1px solid ${backgroundColor}`
+          }}>
+            <Button
+              onClick={handleCloseDescription}
+              variant="contained"
+              startIcon={<Close />}
+              sx={{
+                background: `linear-gradient(45deg, ${primaryColor} 30%, ${primaryColor}CC 90%)`,
+                '&:hover': {
+                  background: `linear-gradient(45deg, ${primaryColor}CC 30%, ${primaryColor} 90%)`,
+                  transform: 'translateY(-2px)',
+                  boxShadow: '0 4px 8px rgba(0,0,0,0.1)'
+                },
+                transition: 'all 0.3s ease'
+              }}
+            >
+              Fermer
+            </Button>
+          </Box>
         </Dialog>
       </Container>
     </ThemeProvider>

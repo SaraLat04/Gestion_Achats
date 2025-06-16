@@ -109,25 +109,39 @@ public function updateProfile(Request $request)
 {
     $user = auth()->user();
 
-    $request->validate([
-        'nom' => 'required|string',
-        'prenom' => 'required|string',
-        'email' => 'required|email|unique:users,email,' . $user->id,
-        'photo' => 'nullable|image|max:2048',
-    ]);
-
-    if ($request->hasFile('photo')) {
-        $path = $request->file('photo')->store('photos', 'public');
-        $user->photo = '/storage/' . $path;
+    if (!$user) {
+        return response()->json(['message' => 'Utilisateur non authentifié'], 401);
     }
+
+    $request->validate([
+        'nom' => 'required|string|max:255',
+        'prenom' => 'required|string|max:255',
+        'email' => 'required|email|max:255',
+        'photo' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
+    ]);
 
     $user->nom = $request->nom;
     $user->prenom = $request->prenom;
     $user->email = $request->email;
-    $user->save();
 
-    return response()->json(['user' => $user]);
+    if ($request->hasFile('photo')) {
+    if ($user->photo && Storage::disk('public')->exists($user->photo)) {
+        Storage::disk('public')->delete($user->photo);
+    }
+    $path = $request->file('photo')->store('photos', 'public');
+    $user->photo = $path;
 }
+
+
+$user->save();
+
+// Génère l'URL publique avant de renvoyer la réponse
+$user->photo = $user->photo ? asset('storage/' . $user->photo) : null;
+
+return response()->json(['message' => 'Profil mis à jour avec succès', 'user' => $user]);
+
+}
+
 
 }
 

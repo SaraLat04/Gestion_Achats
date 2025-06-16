@@ -148,4 +148,7 @@ Route::middleware('auth:sanctum')->get('/profile', function (Request $request) {
 });
 
 // Route pour modifier le profil utilisateur
-Route::middleware('auth:sanctum')->put('/profile', [AuthController::class, 'updateProfile']);
+Route::middleware(['auth:sanctum'])->group(function () {
+    // ...
+    Route::match(['put', 'post'], '/profile', [AuthController::class, 'updateProfile']);
+});

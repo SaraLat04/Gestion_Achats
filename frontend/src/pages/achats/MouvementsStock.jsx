@@ -315,13 +315,13 @@ const MouvementsStock = () => {
               <Grid item xs={12} sm={6} md={4}>
                 <Card sx={{ 
                   background: `linear-gradient(45deg, ${secondaryColor} 30%, ${secondaryColor}CC 90%)`,
-                  color: 'white'
+                  color: '#FFFFFF'
                 }}>
                   <CardContent>
-                    <Typography variant="h6" gutterBottom>
+                    <Typography variant="h6" gutterBottom sx={{ color: '#FFFFFF' }}>
                       Total Sorties
                     </Typography>
-                    <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+                    <Typography variant="h4" sx={{ fontWeight: 'bold', color: '#FFFFFF' }}>
                       {statistiques.totalSorties.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                     </Typography>
                   </CardContent>

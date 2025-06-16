@@ -270,7 +270,7 @@ const Inventaires = () => {
         <Grid container spacing={3}>
           <Grid item xs={12}>
             <Grid container spacing={2}>
-              <Grid item xs={12} sm={6} md={3}>
+              <Grid item xs={12} sm={6} md={4}>
                 <Card sx={{ 
                   background: `linear-gradient(45deg, ${primaryColor} 30%, ${primaryColor}CC 90%)`,
                   color: 'white'
@@ -285,39 +285,24 @@ const Inventaires = () => {
                   </CardContent>
                 </Card>
               </Grid>
-              <Grid item xs={12} sm={6} md={3}>
+              <Grid item xs={12} sm={6} md={4}>
                 <Card sx={{ 
                   background: `linear-gradient(45deg, ${secondaryColor} 30%, ${secondaryColor}CC 90%)`,
                   color: 'white'
                 }}>
                   <CardContent>
-                    <Typography variant="h6" gutterBottom>
+                    <Typography variant="h6" gutterBottom sx={{ color: '#FFFFFF' }}>
                       Quantité Totale
                     </Typography>
-                    <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+                    <Typography variant="h4" sx={{ fontWeight: 'bold', color: '#FFFFFF' }}>
                       {statistiques.totalQuantite.toLocaleString('fr-FR')}
                     </Typography>
                   </CardContent>
                 </Card>
               </Grid>
-              <Grid item xs={12} sm={6} md={3}>
+              <Grid item xs={12} sm={6} md={4}>
                 <Card sx={{ 
                   background: `linear-gradient(45deg, ${accentColor} 30%, ${accentColor}CC 90%)`,
-                  color: 'white'
-                }}>
-                  <CardContent>
-                    <Typography variant="h6" gutterBottom>
-                      Produits Épuisés
-                    </Typography>
-                    <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-                      {statistiques.produitsEpuises}
-                    </Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-              <Grid item xs={12} sm={6} md={3}>
-                <Card sx={{ 
-                  background: `linear-gradient(45deg, ${secondaryColor} 30%, ${secondaryColor}CC 90%)`,
                   color: 'white'
                 }}>
                   <CardContent>

@@ -419,7 +419,7 @@ const MagasinierDashboard = () => {
                             <Grid item xs={12} sm={6} md={3}>
                                 <StatCard
                                     title="Valeur Stock"
-                                    value={`${statistiques_generales.valeur_stock.toLocaleString()} DH`}
+                                    value={`${statistiques_generales.valeur_stock.toLocaleString()} DHS`}
                                     icon={<LocalShippingIcon />}
                                     color={COLORS.success}
                                     subtitle="Valeur totale"

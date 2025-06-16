@@ -28,6 +28,7 @@ export default defineConfig(({ mode }) => {
     define: {
       global: 'window'
     },
+    assetsInclude: ['**/*.PNG', '**/*.png'],
     resolve: {
       alias: [
         // { find: '', replacement: path.resolve(__dirname, 'src') },

@@ -22,6 +22,8 @@ import {
   createTheme,
   CssBaseline,
   Container,
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import { Add as AddIcon } from '@mui/icons-material';
 import { getProduits } from '../../api/produit';
@@ -126,29 +128,16 @@ const GestionStock = () => {
     date: new Date().toISOString().split('T')[0],
     motif: '',
   });
+  const [notification, setNotification] = useState({
+    open: false,
+    message: '',
+    severity: 'success'
+  });
 
   useEffect(() => {
     loadProduits();
     loadMouvements();
   }, []);
-
-  const loadProduits = async () => {
-    try {
-      const data = await getProduits();
-      setProduits(data);
-    } catch (error) {
-      console.error('Erreur lors du chargement des produits:', error);
-    }
-  };
-
-  const loadMouvements = async () => {
-    try {
-      const data = await getMouvementsStock();
-      setMouvements(data);
-    } catch (error) {
-      console.error('Erreur lors du chargement des mouvements:', error);
-    }
-  };
 
   const handleOpenModal = () => {
     setFormData({
@@ -173,14 +162,96 @@ const GestionStock = () => {
     }));
   };
 
+  const handleCloseNotification = () => {
+    setNotification(prev => ({ ...prev, open: false }));
+  };
+
+  const loadProduits = async () => {
+    try {
+      const data = await getProduits();
+      setProduits(data);
+    } catch (error) {
+      setNotification({
+        open: true,
+        message: 'Erreur lors du chargement des produits',
+        severity: 'error'
+      });
+      console.error('Erreur lors du chargement des produits:', error);
+    }
+  };
+
+  const loadMouvements = async () => {
+    try {
+      const data = await getMouvementsStock();
+      setMouvements(data);
+    } catch (error) {
+      setNotification({
+        open: true,
+        message: 'Erreur lors du chargement des mouvements',
+        severity: 'error'
+      });
+      console.error('Erreur lors du chargement des mouvements:', error);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // Vérification des champs requis
+    const requiredFields = {
+      produit_id: 'Produit',
+      type: 'Type de mouvement',
+      quantite: 'Quantité',
+      date: 'Date',
+      motif: 'Raison'
+    };
+
+    const emptyFields = Object.entries(requiredFields)
+      .filter(([field]) => !formData[field])
+      .map(([_, label]) => label);
+
+    if (emptyFields.length > 0) {
+      setNotification({
+        open: true,
+        message: `Veuillez remplir tous les champs requis : ${emptyFields.join(', ')}`,
+        severity: 'warning'
+      });
+      return;
+    }
+
+    // Vérification de la quantité pour les sorties
+    if (formData.type === 'sortie') {
+      const produit = produits.find(p => p.id === parseInt(formData.produit_id));
+      if (produit && parseInt(formData.quantite) > produit.quantite) {
+        setNotification({
+          open: true,
+          message: `La quantité en stock (${produit.quantite}) est insuffisante pour cette sortie`,
+          severity: 'error'
+        });
+        return;
+      }
+    }
+
     try {
       await createMouvementStock(formData);
+      setNotification({
+        open: true,
+        message: 'Mouvement de stock enregistré avec succès',
+        severity: 'success'
+      });
       handleCloseModal();
       loadMouvements();
-      loadProduits(); // Pour mettre à jour les quantités en stock
+      loadProduits();
     } catch (error) {
+      let errorMessage = 'Une erreur est survenue lors de l\'enregistrement du mouvement';
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      }
+      setNotification({
+        open: true,
+        message: errorMessage,
+        severity: 'error'
+      });
       console.error('Erreur lors de la création du mouvement:', error);
     }
   };
@@ -358,6 +429,24 @@ const GestionStock = () => {
             </Box>
           </Modal>
         </Box>
+
+        {/* Notification Snackbar */}
+        <Snackbar
+          open={notification.open}
+          autoHideDuration={4000}
+          onClose={handleCloseNotification}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        >
+          <Alert 
+            onClose={handleCloseNotification} 
+            severity={notification.severity}
+            variant="filled"
+            elevation={6}
+            sx={{ width: '100%' }}
+          >
+            {notification.message}
+          </Alert>
+        </Snackbar>
       </Container>
     </ThemeProvider>
   );

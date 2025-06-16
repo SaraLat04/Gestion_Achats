@@ -25,7 +25,9 @@ import {
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
-
+import Snackbar from '@mui/material/Snackbar';
+import MuiAlert from '@mui/material/Alert';
+import { useState } from 'react';
 // Définition des couleurs principales
 const primaryColor = "#B36B39" // Couleur bronze/cuivre du logo
 const secondaryColor = "#2C3E50" // Bleu foncé pour le contraste
@@ -175,18 +177,29 @@ function reducer(state, action) {
 export default function AddDemande() {
   const [state, dispatch] = useReducer(reducer, initialState);
 
+
+const [snackbar, setSnackbar] = useState({
+  open: false,
+  message: '',
+  severity: 'success', // 'success' | 'error' | 'info' | 'warning'
+});
+const showSnackbar = (message, severity = 'success') => {
+  setSnackbar({ open: true, message, severity });
+};
+
+
   const user = JSON.parse(localStorage.getItem('user'));
 
   // Fonction envoyerDemande
   const envoyerDemande = async () => {
     if (!user) {
-      alert("Utilisateur non connecté !");
+      showSnackbar("Utilisateur non connecté !", "error");
       return;
     }
   
     // Validation simple
     if (!state.description || !state.justification || state.produits.length === 0) {
-      alert("Veuillez remplir la description, la justification et ajouter au moins un produit.");
+      showSnackbar("Veuillez remplir tous les champs requis.", "warning");
       return;
     }
   
@@ -219,7 +232,7 @@ export default function AddDemande() {
         },
       });
     
-      alert("Demande envoyée avec succès !");
+      showSnackbar("Demande envoyée avec succès !", "success");
       dispatch({ type: "RESET" });
     } catch (error) {
       if (error.response) {
@@ -229,7 +242,8 @@ export default function AddDemande() {
       } else {
         console.error("Erreur de configuration :", error.message);
       }
-      alert("Une erreur est survenue lors de l'envoi.");
+      showSnackbar("Une erreur est survenue lors de l'envoi.", "error");
+
     }
   };
 
@@ -319,50 +333,7 @@ export default function AddDemande() {
               </Grid>
             </Box>
 
-            <Box sx={{ mb: 4 }}>
-              <Typography variant="h2" gutterBottom sx={{ color: secondaryColor }}>
-                Pièce Jointe
-              </Typography>
-              <Box sx={{ 
-                display: "flex", 
-                alignItems: "center",
-                p: 2,
-                border: `2px dashed ${primaryColor}`,
-                borderRadius: 2,
-                bgcolor: 'background.default'
-              }}>
-                <IconButton 
-                  color="primary" 
-                  component="label" 
-                  sx={{ 
-                    border: `2px solid ${primaryColor}`,
-                    padding: 2,
-                    borderRadius: 2,
-                    '&:hover': {
-                      bgcolor: `${primaryColor}10`
-                    }
-                  }}
-                >
-                  <CloudUploadIcon sx={{ fontSize: 40 }} />
-                  <input
-                    type="file"
-                    accept=".jpg,.jpeg,.png,.pdf"
-                    hidden
-                    onChange={handleFileChange}
-                  />
-                </IconButton>
-                <Box sx={{ ml: 2 }}>
-                  <Typography variant="body1" color="primary">
-                    Télécharger un fichier
-                  </Typography>
-                  {state.fichier && (
-                    <Typography variant="body2" color="textSecondary">
-                      Fichier choisi: {state.fichier.name}
-                    </Typography>
-                  )}
-                </Box>
-              </Box>
-            </Box>
+            
 
             <Box sx={{ mb: 4 }}>
               <Typography variant="h2" gutterBottom sx={{ color: secondaryColor }}>
@@ -468,6 +439,23 @@ export default function AddDemande() {
           </CardContent>
         </Card>
       </Container>
+      <Snackbar
+  open={snackbar.open}
+  autoHideDuration={4000}
+  onClose={() => setSnackbar({ ...snackbar, open: false })}
+  anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+>
+  <MuiAlert 
+    onClose={() => setSnackbar({ ...snackbar, open: false })} 
+    severity={snackbar.severity} 
+    variant="filled"
+    elevation={6}
+    sx={{ width: '100%' }}
+  >
+    {snackbar.message}
+  </MuiAlert>
+</Snackbar>
+
     </ThemeProvider>
   );
 }
