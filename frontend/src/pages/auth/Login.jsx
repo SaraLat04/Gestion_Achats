@@ -202,7 +202,7 @@ export default function Login() {
                   mx: 'auto'
                 }}
               >
-                Bienvenue sur la plateforme de gestion des achats
+                Bienvenue sur la plateforme gestion des achats
               </Typography>
             </Box>
 
